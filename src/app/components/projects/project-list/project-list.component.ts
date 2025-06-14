@@ -8,10 +8,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ProjectService } from '../../../services/project.service';
 import { TaskService } from '../../../services/task.service';
 import { Project } from '../../../models/project.interface';
 import { Task } from '../../../models/task.interface';
+import { ProjectFormComponent } from '../project-form/project-form.component';
 
 @Component({
   selector: 'app-project-list',
@@ -26,6 +28,7 @@ import { Task } from '../../../models/task.interface';
     MatListModule,
     MatIconModule,
     MatExpansionModule,
+    MatDialogModule,
   ],
   template: `
     <div class="project-container">
@@ -108,13 +111,22 @@ import { Task } from '../../../models/task.interface';
                 </button>
               </form>
 
-              <button
-                mat-icon-button
-                (click)="deleteProject(project.id)"
-                class="delete-project"
-              >
-                <mat-icon>delete</mat-icon>
-              </button>
+              <div class="project-actions">
+                <button
+                  mat-icon-button
+                  color="primary"
+                  (click)="openEditDialog(project)"
+                >
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button
+                  mat-icon-button
+                  color="warn"
+                  (click)="deleteProject(project.id)"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
             </mat-expansion-panel>
           </mat-accordion>
         </mat-card-content>
@@ -153,7 +165,9 @@ import { Task } from '../../../models/task.interface';
         text-decoration: line-through;
         color: #888;
       }
-      .delete-project {
+      .project-actions {
+        display: flex;
+        gap: 8px;
         margin-top: 16px;
       }
       mat-list-item {
@@ -182,7 +196,8 @@ export class ProjectListComponent implements OnInit {
 
   constructor(
     private projectService: ProjectService,
-    private taskService: TaskService
+    private taskService: TaskService,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit() {
@@ -215,6 +230,25 @@ export class ProjectListComponent implements OnInit {
           };
         });
     }
+  }
+
+  openEditDialog(project: Project) {
+    const dialogRef = this.dialog.open(ProjectFormComponent, {
+      data: project,
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result) {
+        this.projectService
+          .updateProject(project.id, result)
+          .subscribe((updatedProject) => {
+            const index = this.projects.findIndex((p) => p.id === project.id);
+            if (index !== -1) {
+              this.projects[index] = updatedProject;
+            }
+          });
+      }
+    });
   }
 
   addTask(projectId: number) {
