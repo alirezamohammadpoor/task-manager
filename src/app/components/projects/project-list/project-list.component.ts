@@ -1,106 +1,188 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { ProjectService } from '../../../services/project.service';
+import { TaskService } from '../../../services/task.service';
 import { Project } from '../../../models/project.interface';
-import { ProjectFormComponent } from '../project-form/project-form.component';
+import { Task } from '../../../models/task.interface';
 
 @Component({
   selector: 'app-project-list',
   standalone: true,
   imports: [
     CommonModule,
-    RouterModule,
+    FormsModule,
     MatCardModule,
     MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatListModule,
     MatIconModule,
-    MatDialogModule,
+    MatExpansionModule,
   ],
   template: `
-    <div class="project-list-container">
-      <div class="header">
-        <h1>Projects</h1>
-        <button mat-raised-button color="primary" (click)="openProjectDialog()">
-          <mat-icon>add</mat-icon>
-          New Project
-        </button>
-      </div>
+    <div class="project-container">
+      <!-- Add Project Form -->
+      <mat-card class="add-project-card">
+        <mat-card-header>
+          <mat-card-title>Add New Project</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <form (ngSubmit)="addProject()">
+            <mat-form-field appearance="fill">
+              <mat-label>Project Name</mat-label>
+              <input
+                matInput
+                [(ngModel)]="newProject.name"
+                name="name"
+                required
+              />
+            </mat-form-field>
+            <mat-form-field appearance="fill">
+              <mat-label>Description</mat-label>
+              <input
+                matInput
+                [(ngModel)]="newProject.description"
+                name="description"
+              />
+            </mat-form-field>
+            <button mat-raised-button color="primary" type="submit">
+              Add Project
+            </button>
+          </form>
+        </mat-card-content>
+      </mat-card>
 
-      <div class="projects-grid">
-        <mat-card *ngFor="let project of projects" class="project-card">
-          <mat-card-header>
-            <mat-card-title>{{ project.name }}</mat-card-title>
-            <mat-card-subtitle>{{ project.status }}</mat-card-subtitle>
-          </mat-card-header>
-          <mat-card-content>
-            <p>{{ project.description }}</p>
-          </mat-card-content>
-          <mat-card-actions>
-            <button mat-button [routerLink]="['/projects', project.id]">
-              View Details
-            </button>
-            <button
-              mat-button
-              color="primary"
-              (click)="openProjectDialog(project)"
-            >
-              Edit
-            </button>
-            <button mat-button color="warn" (click)="deleteProject(project.id)">
-              Delete
-            </button>
-          </mat-card-actions>
-        </mat-card>
-      </div>
+      <!-- Project List -->
+      <mat-card class="project-list-card">
+        <mat-card-header>
+          <mat-card-title>Projects</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-accordion>
+            <mat-expansion-panel *ngFor="let project of projects">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  {{ project.name }}
+                </mat-panel-title>
+                <mat-panel-description>
+                  {{ project.description }}
+                </mat-panel-description>
+              </mat-expansion-panel-header>
+
+              <!-- Project Tasks -->
+              <mat-list>
+                <mat-list-item *ngFor="let task of project.tasks">
+                  <span [class.completed]="task.status === 'completed'">
+                    {{ task.title }}
+                  </span>
+                  <button
+                    mat-icon-button
+                    (click)="deleteTask(project.id, task.id)"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </mat-list-item>
+              </mat-list>
+
+              <!-- Add Task Form -->
+              <form (ngSubmit)="addTask(project.id)" class="add-task-form">
+                <mat-form-field appearance="fill">
+                  <mat-label>New Task</mat-label>
+                  <input
+                    matInput
+                    [(ngModel)]="newTask.title"
+                    name="title"
+                    required
+                  />
+                </mat-form-field>
+                <button mat-raised-button color="primary" type="submit">
+                  Add Task
+                </button>
+              </form>
+
+              <button
+                mat-icon-button
+                (click)="deleteProject(project.id)"
+                class="delete-project"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+            </mat-expansion-panel>
+          </mat-accordion>
+        </mat-card-content>
+      </mat-card>
     </div>
   `,
   styles: [
     `
-      .project-list-container {
+      .project-container {
         padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
       }
-
-      .header {
+      .add-project-card,
+      .project-list-card {
+        max-width: 800px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      mat-form-field {
+        width: 100%;
+      }
+      .add-task-form {
+        margin-top: 16px;
+        padding: 16px;
+        background: #f5f5f5;
+        border-radius: 4px;
+      }
+      .completed {
+        text-decoration: line-through;
+        color: #888;
+      }
+      .delete-project {
+        margin-top: 16px;
+      }
+      mat-list-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
-      }
-
-      .projects-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-      }
-
-      .project-card {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
-
-      mat-card-content {
-        flex-grow: 1;
-      }
-
-      mat-card-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
       }
     `,
   ],
 })
 export class ProjectListComponent implements OnInit {
   projects: Project[] = [];
+  newProject: Partial<Project> = {
+    name: '',
+    description: '',
+    status: 'active',
+    tasks: [],
+  };
+  newTask: Partial<Task> = {
+    title: '',
+    description: '',
+    status: 'todo',
+    priority: 'medium',
+    dueDate: new Date(),
+  };
 
   constructor(
     private projectService: ProjectService,
-    private dialog: MatDialog
+    private taskService: TaskService
   ) {}
 
   ngOnInit() {
@@ -110,38 +192,65 @@ export class ProjectListComponent implements OnInit {
   loadProjects() {
     this.projectService.getProjects().subscribe((projects) => {
       this.projects = projects;
+      // Load tasks for each project
+      this.projects.forEach((project) => {
+        this.taskService.getTasksByProject(project.id).subscribe((tasks) => {
+          project.tasks = tasks;
+        });
+      });
     });
   }
 
-  openProjectDialog(project?: Project) {
-    const dialogRef = this.dialog.open(ProjectFormComponent, {
-      data: project || null,
-    });
+  addProject() {
+    if (this.newProject.name) {
+      this.projectService
+        .createProject(this.newProject as Project)
+        .subscribe((project) => {
+          this.projects.push(project);
+          this.newProject = {
+            name: '',
+            description: '',
+            status: 'active',
+            tasks: [],
+          };
+        });
+    }
+  }
 
-    dialogRef.afterClosed().subscribe((result) => {
-      if (result) {
+  addTask(projectId: number) {
+    if (this.newTask.title) {
+      const task = {
+        ...this.newTask,
+        projectId,
+      };
+      this.taskService.createTask(task as Task).subscribe((newTask) => {
+        const project = this.projects.find((p) => p.id === projectId);
         if (project) {
-          // Update existing project
-          this.projectService
-            .updateProject(project.id, result)
-            .subscribe(() => {
-              this.loadProjects();
-            });
-        } else {
-          // Create new project
-          this.projectService.createProject(result).subscribe(() => {
-            this.loadProjects();
-          });
+          project.tasks.push(newTask);
         }
-      }
-    });
+        this.newTask = {
+          title: '',
+          description: '',
+          status: 'todo',
+          priority: 'medium',
+          dueDate: new Date(),
+        };
+      });
+    }
   }
 
   deleteProject(id: number) {
-    if (confirm('Are you sure you want to delete this project?')) {
-      this.projectService.deleteProject(id).subscribe(() => {
-        this.loadProjects();
-      });
-    }
+    this.projectService.deleteProject(id).subscribe(() => {
+      this.projects = this.projects.filter((project) => project.id !== id);
+    });
+  }
+
+  deleteTask(projectId: number, taskId: number) {
+    this.taskService.deleteTask(taskId).subscribe(() => {
+      const project = this.projects.find((p) => p.id === projectId);
+      if (project) {
+        project.tasks = project.tasks.filter((task) => task.id !== taskId);
+      }
+    });
   }
 }

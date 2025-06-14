@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { Task } from '../models/task.interface';
 
@@ -46,43 +46,124 @@ export class TaskService {
     },
   ];
 
+  // Signals for state management
+  private tasksSignal = signal<Task[]>(this.mockTasks);
+  private loadingSignal = signal<boolean>(false);
+  private errorSignal = signal<string | null>(null);
+
+  // Public signals
+  public tasks = this.tasksSignal.asReadonly();
+  public loading = this.loadingSignal.asReadonly();
+  public error = this.errorSignal.asReadonly();
+
   constructor(private http: HttpClient) {}
 
   getTasks(): Observable<Task[]> {
-    return of(this.mockTasks);
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const tasks = this.mockTasks;
+      this.tasksSignal.set(tasks);
+      return of(tasks);
+    } catch (err) {
+      this.errorSignal.set('Failed to load tasks');
+      return of([]);
+    } finally {
+      this.loadingSignal.set(false);
+    }
   }
 
   getTask(id: number): Observable<Task> {
-    return of(this.mockTasks.find((t) => t.id === id)!);
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const task = this.mockTasks.find((t) => t.id === id);
+      if (!task) {
+        throw new Error('Task not found');
+      }
+      return of(task);
+    } catch (err) {
+      this.errorSignal.set('Failed to load task');
+      return of(this.mockTasks[0]); // Fallback
+    } finally {
+      this.loadingSignal.set(false);
+    }
   }
 
   createTask(task: Omit<Task, 'id'>): Observable<Task> {
-    const newTask = {
-      ...task,
-      id: this.mockTasks.length + 1,
-    };
-    this.mockTasks.push(newTask);
-    return of(newTask);
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const newTask = {
+        ...task,
+        id: this.mockTasks.length + 1,
+      };
+      this.mockTasks.push(newTask);
+      this.tasksSignal.set([...this.mockTasks]);
+      return of(newTask);
+    } catch (err) {
+      this.errorSignal.set('Failed to create task');
+      return of(this.mockTasks[0]); // Fallback
+    } finally {
+      this.loadingSignal.set(false);
+    }
   }
 
   updateTask(id: number, task: Partial<Task>): Observable<Task> {
-    const index = this.mockTasks.findIndex((t) => t.id === id);
-    if (index !== -1) {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const index = this.mockTasks.findIndex((t) => t.id === id);
+      if (index === -1) {
+        throw new Error('Task not found');
+      }
       this.mockTasks[index] = { ...this.mockTasks[index], ...task };
+      this.tasksSignal.set([...this.mockTasks]);
       return of(this.mockTasks[index]);
+    } catch (err) {
+      this.errorSignal.set('Failed to update task');
+      return of(this.mockTasks[0]); // Fallback
+    } finally {
+      this.loadingSignal.set(false);
     }
-    return of(this.mockTasks[0]); // Fallback
   }
 
   deleteTask(id: number): Observable<void> {
-    const index = this.mockTasks.findIndex((t) => t.id === id);
-    if (index !== -1) {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const index = this.mockTasks.findIndex((t) => t.id === id);
+      if (index === -1) {
+        throw new Error('Task not found');
+      }
       this.mockTasks.splice(index, 1);
+      this.tasksSignal.set([...this.mockTasks]);
+      return of(void 0);
+    } catch (err) {
+      this.errorSignal.set('Failed to delete task');
+      return of(void 0);
+    } finally {
+      this.loadingSignal.set(false);
     }
-    return of(void 0);
   }
 
   getTasksByProject(projectId: number): Observable<Task[]> {
-    return of(this.mockTasks.filter((t) => t.projectId === projectId));
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const tasks = this.mockTasks.filter((t) => t.projectId === projectId);
+      return of(tasks);
+    } catch (err) {
+      this.errorSignal.set('Failed to load project tasks');
+      return of([]);
+    } finally {
+      this.loadingSignal.set(false);
+    }
   }
 }
