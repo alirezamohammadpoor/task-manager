@@ -326,13 +326,20 @@ export class TaskListComponent implements OnInit {
     }
   }
 
-  toggleTaskStatus(task: Task) {
-    const newStatus: TaskStatus =
-      task.status === 'completed' ? 'todo' : 'completed';
+  toggleTaskStatus(task: Task): void {
+    const newStatus = task.status === 'completed' ? 'todo' : 'completed';
     this.taskService
-      .updateTask(task.id, { status: newStatus })
-      .subscribe(() => {
-        this.applyFilters();
+      .updateTask(task.id, {
+        ...task,
+        status: newStatus,
+      })
+      .subscribe({
+        next: () => {
+          this.loadTasks();
+        },
+        error: (error) => {
+          console.error('Error updating task:', error);
+        },
       });
   }
 

@@ -17,11 +17,11 @@ import { TaskService } from '../../../services/task.service';
 import { Project, ProjectStatus } from '../../../models/project.interface';
 import { Task, TaskPriority, TaskStatus } from '../../../models/task.interface';
 import { ProjectFormComponent } from '../project-form/project-form.component';
-import { ConfirmationDialogComponent } from '../../shared/confirmation-dialog/confirmation-dialog.component';
+import { ConfirmationDialogComponent } from '../../../shared/confirmation-dialog/confirmation-dialog.component';
 import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
-import { CustomButtonComponent } from '../../shared/components/custom-button/custom-button.component';
-import { PriorityLabelPipe } from '../../shared/pipes/priority-label.pipe';
-import { OverdueTaskDirective } from '../../shared/directives/overdue-task.directive';
+import { CustomButtonComponent } from '../../../shared/components/custom-button/custom-button.component';
+import { PriorityLabelPipe } from '../../../shared/pipes/priority-label.pipe';
+import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.directive';
 
 @Component({
   selector: 'app-project-list',
