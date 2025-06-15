@@ -1,6 +1,6 @@
+import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 import { Project } from '../models/project.interface';
 
 @Injectable({
@@ -9,63 +9,104 @@ import { Project } from '../models/project.interface';
 export class ProjectService {
   private apiUrl = 'http://localhost:3000/projects';
 
-  // Mock data for testing
-  private mockProjects: Project[] = [
-    {
-      id: 1,
-      name: 'Website Redesign',
-      description: 'Redesign company website with modern UI',
-      status: 'active',
-      tasks: [],
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date('2024-01-15'),
-    },
-    {
-      id: 2,
-      name: 'Mobile App Development',
-      description: 'Create new mobile app for iOS and Android',
-      status: 'active',
-      tasks: [],
-      createdAt: new Date('2024-02-01'),
-      updatedAt: new Date('2024-02-15'),
-    },
-  ];
+  // Signals for state management
+  private projectsSignal = signal<Project[]>([]);
+  private loadingSignal = signal<boolean>(false);
+  private errorSignal = signal<string | null>(null);
 
-  constructor(private http: HttpClient) {}
+  // Expose signals as readonly
+  readonly projects = this.projectsSignal.asReadonly();
+  readonly loading = this.loadingSignal.asReadonly();
+  readonly error = this.errorSignal.asReadonly();
+
+  constructor(private http: HttpClient) {
+    this.loadProjects();
+  }
+
+  private loadProjects(): void {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    this.http
+      .get<Project[]>(this.apiUrl)
+      .pipe(
+        tap({
+          next: (projects) => {
+            this.projectsSignal.set(projects);
+            this.loadingSignal.set(false);
+          },
+          error: (error) => {
+            this.errorSignal.set('Failed to load projects');
+            this.loadingSignal.set(false);
+          },
+        })
+      )
+      .subscribe();
+  }
 
   getProjects(): Observable<Project[]> {
-    // Return mock data instead of HTTP request
-    return of(this.mockProjects);
+    return this.http.get<Project[]>(this.apiUrl);
   }
 
   getProject(id: number): Observable<Project> {
-    return of(this.mockProjects.find((p) => p.id === id)!);
+    return this.http.get<Project>(`${this.apiUrl}/${id}`);
   }
 
-  createProject(project: Omit<Project, 'id'>): Observable<Project> {
-    const newProject = {
-      ...project,
-      id: this.mockProjects.length + 1,
-      tasks: [],
-    };
-    this.mockProjects.push(newProject);
-    return of(newProject);
+  createProject(project: Project): Observable<Project> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    return this.http.post<Project>(this.apiUrl, project).pipe(
+      tap({
+        next: (newProject) => {
+          this.projectsSignal.update((projects) => [...projects, newProject]);
+          this.loadingSignal.set(false);
+        },
+        error: (error) => {
+          this.errorSignal.set('Failed to create project');
+          this.loadingSignal.set(false);
+        },
+      })
+    );
   }
 
-  updateProject(id: number, project: Partial<Project>): Observable<Project> {
-    const index = this.mockProjects.findIndex((p) => p.id === id);
-    if (index !== -1) {
-      this.mockProjects[index] = { ...this.mockProjects[index], ...project };
-      return of(this.mockProjects[index]);
-    }
-    return of(this.mockProjects[0]); // Fallback
+  updateProject(id: number, project: Project): Observable<Project> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    return this.http.put<Project>(`${this.apiUrl}/${id}`, project).pipe(
+      tap({
+        next: (updatedProject) => {
+          this.projectsSignal.update((projects) =>
+            projects.map((p) => (p.id === id ? updatedProject : p))
+          );
+          this.loadingSignal.set(false);
+        },
+        error: (error) => {
+          this.errorSignal.set('Failed to update project');
+          this.loadingSignal.set(false);
+        },
+      })
+    );
   }
 
   deleteProject(id: number): Observable<void> {
-    const index = this.mockProjects.findIndex((p) => p.id === id);
-    if (index !== -1) {
-      this.mockProjects.splice(index, 1);
-    }
-    return of(void 0);
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
+      tap({
+        next: () => {
+          this.projectsSignal.update((projects) =>
+            projects.filter((p) => p.id !== id)
+          );
+          this.loadingSignal.set(false);
+        },
+        error: (error) => {
+          this.errorSignal.set('Failed to delete project');
+          this.loadingSignal.set(false);
+        },
+      })
+    );
   }
 }

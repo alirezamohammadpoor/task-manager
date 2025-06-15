@@ -19,6 +19,9 @@ import { Task, TaskPriority, TaskStatus } from '../../../models/task.interface';
 import { ProjectFormComponent } from '../project-form/project-form.component';
 import { ConfirmationDialogComponent } from '../../shared/confirmation-dialog/confirmation-dialog.component';
 import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
+import { CustomButtonComponent } from '../../shared/components/custom-button/custom-button.component';
+import { PriorityLabelPipe } from '../../shared/pipes/priority-label.pipe';
+import { OverdueTaskDirective } from '../../shared/directives/overdue-task.directive';
 
 @Component({
   selector: 'app-project-list',
@@ -37,6 +40,9 @@ import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
     MatSelectModule,
     MatDatepickerModule,
     MatNativeDateModule,
+    CustomButtonComponent,
+    PriorityLabelPipe,
+    OverdueTaskDirective,
   ],
   template: `
     <div class="project-container">
@@ -158,7 +164,9 @@ import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
                       <div class="task-main">
                         <span
                           class="task-title"
-                          [class.completed]="task.status === 'completed'"
+                          [appOverdueTask]
+                          [dueDate]="task.dueDate"
+                          [isCompleted]="task.status === 'completed'"
                         >
                           {{ task.title }}
                         </span>
@@ -171,7 +179,7 @@ import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
                           {{ task.status }}
                         </span>
                         <span class="task-priority" [class]="task.priority">
-                          {{ task.priority }}
+                          {{ task.priority | priorityLabel }}
                         </span>
                         <span class="task-due-date" *ngIf="task.dueDate">
                           Due: {{ task.dueDate | date }}
@@ -179,20 +187,16 @@ import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
                       </div>
                     </div>
                     <div class="task-actions">
-                      <button
-                        mat-icon-button
+                      <app-custom-button
+                        icon="edit"
                         color="primary"
-                        (click)="openTaskEditDialog(task)"
-                      >
-                        <mat-icon>edit</mat-icon>
-                      </button>
-                      <button
-                        mat-icon-button
+                        (onClick)="openTaskEditDialog(task)"
+                      ></app-custom-button>
+                      <app-custom-button
+                        icon="delete"
                         color="warn"
-                        (click)="deleteTask(project.id, task.id)"
-                      >
-                        <mat-icon>delete</mat-icon>
-                      </button>
+                        (onClick)="deleteTask(project.id, task.id)"
+                      ></app-custom-button>
                     </div>
                   </mat-list-item>
                 </mat-list>
@@ -243,26 +247,25 @@ import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
                   ></mat-datepicker-toggle>
                   <mat-datepicker #picker></mat-datepicker>
                 </mat-form-field>
-                <button mat-raised-button color="primary" type="submit">
-                  Add Task
-                </button>
+                <app-custom-button
+                  label="Add Task"
+                  icon="add"
+                  color="primary"
+                  type="submit"
+                ></app-custom-button>
               </form>
 
               <div class="project-actions">
-                <button
-                  mat-icon-button
+                <app-custom-button
+                  icon="edit"
                   color="primary"
-                  (click)="openEditDialog(project)"
-                >
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button
-                  mat-icon-button
+                  (onClick)="openEditDialog(project)"
+                ></app-custom-button>
+                <app-custom-button
+                  icon="delete"
                   color="warn"
-                  (click)="deleteProject(project.id)"
-                >
-                  <mat-icon>delete</mat-icon>
-                </button>
+                  (onClick)="deleteProject(project.id)"
+                ></app-custom-button>
               </div>
             </mat-expansion-panel>
           </mat-accordion>
@@ -418,6 +421,13 @@ import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
       .task-status.completed {
         background-color: #e8f5e9;
         color: #2e7d32;
+      }
+      .task-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .task-actions app-custom-button {
+        margin: 0;
       }
     `,
   ],
