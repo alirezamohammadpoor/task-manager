@@ -1,4 +1,4 @@
-import { Task } from './task.interface';
+import { Task } from './task.model';
 
 // Project status can be 'active', 'completed', or 'archived'
 export type ProjectStatus = 'active' | 'completed' | 'archived';

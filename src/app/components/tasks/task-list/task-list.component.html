@@ -1,1 +1,85 @@
-<p>task-list works!</p>
+<mat-card>
+  <mat-card-header>
+    <mat-card-title>Tasks</mat-card-title>
+    <mat-card-subtitle>Manage your tasks</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <form (ngSubmit)="createTask()">
+      <mat-form-field appearance="fill">
+        <mat-label>Task Title</mat-label>
+        <input matInput [(ngModel)]="newTask.title" name="title" required />
+      </mat-form-field>
+      <mat-form-field appearance="fill">
+        <mat-label>Description</mat-label>
+        <input matInput [(ngModel)]="newTask.description" name="description" />
+      </mat-form-field>
+      <mat-form-field appearance="fill">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="newTask.status" name="status" required>
+          <mat-option value="todo">To Do</mat-option>
+          <mat-option value="in-progress">In Progress</mat-option>
+          <mat-option value="completed">Completed</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="fill">
+        <mat-label>Priority</mat-label>
+        <mat-select [(ngModel)]="newTask.priority" name="priority" required>
+          <mat-option value="low">Low</mat-option>
+          <mat-option value="medium">Medium</mat-option>
+          <mat-option value="high">High</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="fill">
+        <mat-label>Due Date</mat-label>
+        <input matInput [(ngModel)]="newTask.dueDate" name="dueDate" />
+      </mat-form-field>
+      <button mat-raised-button color="primary" type="submit">Add Task</button>
+    </form>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Search</mat-label>
+      <input
+        matInput
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="applyFilters()"
+        placeholder="Search tasks..."
+      />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Status</mat-label>
+      <mat-select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+        <mat-option value="all">All</mat-option>
+        <mat-option value="todo">To Do</mat-option>
+        <mat-option value="in-progress">In Progress</mat-option>
+        <mat-option value="completed">Completed</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Priority</mat-label>
+      <mat-select [(ngModel)]="priorityFilter" (ngModelChange)="applyFilters()">
+        <mat-option value="all">All</mat-option>
+        <mat-option value="low">Low</mat-option>
+        <mat-option value="medium">Medium</mat-option>
+        <mat-option value="high">High</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-list>
+      <mat-list-item *ngFor="let task of filteredTasks">
+        <mat-checkbox
+          [checked]="task.status === 'completed'"
+          (change)="toggleTaskStatus(task)"
+        >
+          {{ task.title }}
+        </mat-checkbox>
+        <span class="task-priority">{{ task.priority }}</span>
+        <span class="task-due-date">Due: {{ task.dueDate }}</span>
+        <button mat-icon-button color="warn" (click)="deleteTask(task.id)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </mat-list-item>
+    </mat-list>
+  </mat-card-content>
+</mat-card>

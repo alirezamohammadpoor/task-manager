@@ -7,7 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { ProjectService } from '../../../services/project.service';
 import { TaskService } from '../../../services/task.service';
 import { Project } from '../../../models/project.interface';
-import { Task } from '../../../models/task.interface';
+import { Task } from '../../../models/task.model';
 
 @Component({
   selector: 'app-project-detail',

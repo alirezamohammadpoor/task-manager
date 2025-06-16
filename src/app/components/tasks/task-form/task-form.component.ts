@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -12,7 +12,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { Task, TaskStatus, TaskPriority } from '../../../models/task.interface';
+import { MatCardModule } from '@angular/material/card';
+import { Task, TaskStatus, TaskPriority } from '../../../models/task.model';
+import { TaskService } from '../../../services/task.service';
+import { Router, ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-task-form',
@@ -27,103 +30,75 @@ import { Task, TaskStatus, TaskPriority } from '../../../models/task.interface';
     MatSelectModule,
     MatDatepickerModule,
     MatNativeDateModule,
+    MatCardModule,
   ],
-  template: `
-    <h2 mat-dialog-title>{{ data.task ? 'Edit Task' : 'New Task' }}</h2>
-    <mat-dialog-content>
-      <form (ngSubmit)="onSubmit()" #taskForm="ngForm">
-        <mat-form-field appearance="fill">
-          <mat-label>Title</mat-label>
-          <input matInput [(ngModel)]="task.title" name="title" required />
-        </mat-form-field>
-
-        <mat-form-field appearance="fill">
-          <mat-label>Description</mat-label>
-          <input matInput [(ngModel)]="task.description" name="description" />
-        </mat-form-field>
-
-        <mat-form-field appearance="fill">
-          <mat-label>Status</mat-label>
-          <mat-select [(ngModel)]="task.status" name="status" required>
-            <mat-option [value]="'todo'">To Do</mat-option>
-            <mat-option [value]="'in-progress'">In Progress</mat-option>
-            <mat-option [value]="'completed'">Completed</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="fill">
-          <mat-label>Priority</mat-label>
-          <mat-select [(ngModel)]="task.priority" name="priority" required>
-            <mat-option [value]="'low'">Low</mat-option>
-            <mat-option [value]="'medium'">Medium</mat-option>
-            <mat-option [value]="'high'">High</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="fill">
-          <mat-label>Due Date</mat-label>
-          <input
-            matInput
-            [matDatepicker]="picker"
-            [(ngModel)]="task.dueDate"
-            name="dueDate"
-          />
-          <mat-datepicker-toggle
-            matSuffix
-            [for]="picker"
-          ></mat-datepicker-toggle>
-          <mat-datepicker #picker></mat-datepicker>
-        </mat-form-field>
-      </form>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button (click)="onCancel()">Cancel</button>
-      <button
-        mat-raised-button
-        color="primary"
-        (click)="onSubmit()"
-        [disabled]="!taskForm.form.valid"
-      >
-        {{ data.task ? 'Update' : 'Create' }}
-      </button>
-    </mat-dialog-actions>
-  `,
-  styles: [
-    `
-      mat-dialog-content {
-        min-width: 400px;
-      }
-      form {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-      mat-form-field {
-        width: 100%;
-      }
-    `,
-  ],
+  templateUrl: './task-form.component.html',
 })
-export class TaskFormComponent {
-  task: Partial<Task>;
+export class TaskFormComponent implements OnInit {
+  task: Partial<Task> = {
+    title: '',
+    description: '',
+    status: 'todo',
+    priority: 'medium',
+    dueDate: '',
+    userId: 1,
+  };
 
   constructor(
     public dialogRef: MatDialogRef<TaskFormComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { task?: Task }
+    @Inject(MAT_DIALOG_DATA) public data: { task?: Task },
+    private taskService: TaskService,
+    public router: Router,
+    private route: ActivatedRoute
   ) {
-    this.task = data.task
-      ? { ...data.task }
-      : {
-          title: '',
-          description: '',
-          status: 'todo' as TaskStatus,
-          priority: 'medium' as TaskPriority,
-          dueDate: new Date(),
-        };
+    if (data.task) {
+      this.task = { ...data.task };
+    }
   }
 
-  onSubmit(): void {
-    this.dialogRef.close(this.task);
+  ngOnInit() {
+    const taskId = this.route.snapshot.paramMap.get('id');
+    if (taskId) {
+      this.loadTask(Number(taskId));
+    }
+  }
+
+  loadTask(id: number) {
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => {
+        const task = tasks.find((t) => t.id === id);
+        if (task) {
+          this.task = { ...task };
+        }
+      },
+      error: (error) => {
+        console.error('Failed to load task:', error);
+      },
+    });
+  }
+
+  onSubmit() {
+    if (this.task.title) {
+      if (this.task.id) {
+        this.taskService.updateTask(this.task.id, this.task).subscribe({
+          next: () => {
+            this.router.navigate(['/tasks']);
+          },
+          error: (error) => {
+            console.error('Failed to update task:', error);
+          },
+        });
+      } else {
+        this.taskService.createTask(this.task as Omit<Task, 'id'>).subscribe({
+          next: () => {
+            this.router.navigate(['/tasks']);
+          },
+          error: (error) => {
+            console.error('Failed to create task:', error);
+          },
+        });
+      }
+    }
   }
 
   onCancel(): void {

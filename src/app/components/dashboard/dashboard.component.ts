@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ProjectService } from '../../services/project.service';
 import { TaskService } from '../../services/task.service';
 import { Project } from '../../models/project.interface';
-import { Task } from '../../models/task.interface';
+import { Task } from '../../models/task.model';
 
 @Component({
   selector: 'app-dashboard',
@@ -59,6 +59,28 @@ import { Task } from '../../models/task.interface';
           </mat-card-content>
         </mat-card>
       </div>
+
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Task Statistics</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <h3>Total Tasks</h3>
+              <p>{{ taskStats.total }}</p>
+            </div>
+            <div class="stat-item">
+              <h3>Completed Tasks</h3>
+              <p>{{ taskStats.completed }}</p>
+            </div>
+            <div class="stat-item">
+              <h3>Active Tasks</h3>
+              <p>{{ taskStats.active }}</p>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </div>
   `,
   styles: [
@@ -98,6 +120,22 @@ import { Task } from '../../models/task.interface';
         width: 2.5em;
         height: 2.5em;
       }
+      .stat-item {
+        text-align: center;
+        padding: 20px;
+        background-color: #f5f5f5;
+        border-radius: 8px;
+      }
+      .stat-item h3 {
+        margin: 0;
+        color: #666;
+      }
+      .stat-item p {
+        margin: 10px 0 0;
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+      }
     `,
   ],
 })
@@ -110,6 +148,12 @@ export class DashboardComponent implements OnInit {
     completed: 0,
   };
 
+  taskStats = {
+    total: 0,
+    completed: 0,
+    active: 0,
+  };
+
   constructor(
     private projectService: ProjectService,
     private taskService: TaskService
@@ -117,6 +161,7 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit() {
     this.loadStats();
+    this.loadTaskStats();
   }
 
   loadStats() {
@@ -137,6 +182,21 @@ export class DashboardComponent implements OnInit {
         },
         { todo: 0, 'in-progress': 0, completed: 0 }
       );
+    });
+  }
+
+  loadTaskStats() {
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => {
+        this.taskStats = {
+          total: tasks.length,
+          completed: tasks.filter((task) => task.status === 'completed').length,
+          active: tasks.filter((task) => task.status !== 'completed').length,
+        };
+      },
+      error: (error) => {
+        console.error('Failed to load task stats:', error);
+      },
     });
   }
 }

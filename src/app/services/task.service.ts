@@ -1,46 +1,67 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
-import { Observable, of, tap } from 'rxjs';
-import { Task, TaskStatus, TaskPriority } from '../models/task.interface';
+import { Observable, tap, map } from 'rxjs';
+import { Task, TaskStatus, TaskPriority } from '../models/task.model';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TaskService {
-  // API URL for tasks
-  private apiUrl = 'http://localhost:3000/tasks';
+  private apiUrl = 'https://dummyjson.com/todos';
+  private _tasks = signal<Task[]>([]);
+  private _loading = signal(false);
+  private _error = signal<string | null>(null);
+  private localTasks: Task[] = [];
+  private localId = 10000; // Start local IDs high to avoid collision
 
-  // Signals for state management
-  private tasksSignal = signal<Task[]>([]);
-  private loadingSignal = signal<boolean>(false);
-  private errorSignal = signal<string | null>(null);
-
-  // Expose signals as readonly
-  readonly tasks = this.tasksSignal.asReadonly();
-  readonly loading = this.loadingSignal.asReadonly();
-  readonly error = this.errorSignal.asReadonly();
+  tasks = this._tasks.asReadonly();
+  loading = this._loading.asReadonly();
+  error = this._error.asReadonly();
 
   constructor(private http: HttpClient) {
     // Load tasks on service initialization
     this.loadTasks();
   }
 
+  private mapDummyTodoToTask(todo: any): Task {
+    return {
+      id: todo.id,
+      title: todo.todo,
+      description: todo.description || '',
+      status: todo.completed ? 'completed' : 'todo',
+      priority: 'medium',
+      dueDate: '',
+      userId: todo.userId,
+    };
+  }
+
+  private mapTaskToDummyPayload(task: Partial<Task>) {
+    return {
+      todo: task.title,
+      completed: task.status === 'completed',
+      userId: task.userId,
+    };
+  }
+
   // Loads all tasks from the API
   private loadTasks(): void {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    this._loading.set(true);
+    this._error.set(null);
 
     this.http
-      .get<Task[]>(this.apiUrl)
+      .get<{ todos: any[] }>(this.apiUrl)
       .pipe(
+        map((response) =>
+          response.todos.map((todo) => this.mapDummyTodoToTask(todo))
+        ),
         tap({
           next: (tasks) => {
-            this.tasksSignal.set(tasks);
-            this.loadingSignal.set(false);
+            this._tasks.set(tasks);
+            this._loading.set(false);
           },
           error: (error) => {
-            this.errorSignal.set('Failed to load tasks');
-            this.loadingSignal.set(false);
+            this._error.set('Failed to load tasks');
+            this._loading.set(false);
           },
         })
       )
@@ -49,54 +70,97 @@ export class TaskService {
 
   // Returns all tasks as an Observable
   getTasks(): Observable<Task[]> {
-    // Always load fresh data from the API
-    return this.http.get<Task[]>(this.apiUrl).pipe(
-      tap((tasks) => {
-        this.tasksSignal.set(tasks);
+    this._loading.set(true);
+    this._error.set(null);
+    return this.http.get<{ todos: any[] }>(this.apiUrl + '?limit=5').pipe(
+      map((response) =>
+        response.todos.map((todo) => this.mapDummyTodoToTask(todo))
+      ),
+      map((tasks) => [...tasks, ...this.localTasks]),
+      tap({
+        next: (tasks) => {
+          this._tasks.set(tasks);
+          this._loading.set(false);
+        },
+        error: (error) => {
+          this._error.set(error.message);
+          this._loading.set(false);
+        },
       })
     );
   }
 
   // Returns a single task by ID
   getTask(id: number): Observable<Task> {
-    return this.http.get<Task>(`${this.apiUrl}/${id}`);
-  }
-
-  // Creates a new task
-  createTask(task: Task): Observable<Task> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http.post<Task>(this.apiUrl, task).pipe(
+    this._loading.set(true);
+    this._error.set(null);
+    // Check local tasks first
+    const local = this.localTasks.find((t) => t.id === id);
+    if (local) {
+      this._loading.set(false);
+      return new Observable((observer) => {
+        observer.next(local);
+        observer.complete();
+      });
+    }
+    return this.http.get<any>(`${this.apiUrl}/${id}`).pipe(
+      map((todo) => this.mapDummyTodoToTask(todo)),
       tap({
-        next: (newTask) => {
-          this.tasksSignal.update((tasks) => [...tasks, newTask]);
-          this.loadingSignal.set(false);
-        },
+        next: () => this._loading.set(false),
         error: (error) => {
-          this.errorSignal.set('Failed to create task');
-          this.loadingSignal.set(false);
+          this._error.set(error.message);
+          this._loading.set(false);
         },
       })
     );
   }
 
-  // Updates an existing task
-  updateTask(id: number, task: Task): Observable<Task> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  // Creates a new task
+  createTask(task: Omit<Task, 'id'>): Observable<Task> {
+    this._loading.set(true);
+    this._error.set(null);
+    // Add to local cache
+    const newTask: Task = { ...task, id: this.localId++ };
+    this.localTasks.push(newTask);
+    this._tasks.update((tasks) => [...tasks, newTask]);
+    this._loading.set(false);
+    return new Observable((observer) => {
+      observer.next(newTask);
+      observer.complete();
+    });
+  }
 
-    return this.http.put<Task>(`${this.apiUrl}/${id}`, task).pipe(
+  // Updates an existing task
+  updateTask(id: number, task: Partial<Task>): Observable<Task> {
+    this._loading.set(true);
+    this._error.set(null);
+    // Update local task if present
+    const localIdx = this.localTasks.findIndex((t) => t.id === id);
+    if (localIdx !== -1) {
+      this.localTasks[localIdx] = { ...this.localTasks[localIdx], ...task };
+      this._tasks.update((tasks) =>
+        tasks.map((t) => (t.id === id ? { ...t, ...task } : t))
+      );
+      this._loading.set(false);
+      return new Observable((observer) => {
+        observer.next(this.localTasks[localIdx]);
+        observer.complete();
+      });
+    }
+    // Otherwise, update remote
+    const dummyPayload = this.mapTaskToDummyPayload(task);
+    return this.http.put<any>(`${this.apiUrl}/${id}`, dummyPayload).pipe(
+      map((todo) => this.mapDummyTodoToTask(todo)),
       tap({
         next: (updatedTask) => {
-          this.tasksSignal.update((tasks) =>
+          this._tasks.update((tasks) =>
             tasks.map((t) => (t.id === id ? updatedTask : t))
           );
-          this.loadingSignal.set(false);
+          this._loading.set(false);
         },
         error: (error) => {
-          this.errorSignal.set('Failed to update task');
-          this.loadingSignal.set(false);
+          this._error.set(error.message);
+          this._loading.set(false);
         },
       })
     );
@@ -104,18 +168,29 @@ export class TaskService {
 
   // Deletes a task
   deleteTask(id: number): Observable<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
+    this._loading.set(true);
+    this._error.set(null);
+    // Remove from local cache if present
+    const localIdx = this.localTasks.findIndex((t) => t.id === id);
+    if (localIdx !== -1) {
+      this.localTasks.splice(localIdx, 1);
+      this._tasks.update((tasks) => tasks.filter((t) => t.id !== id));
+      this._loading.set(false);
+      return new Observable((observer) => {
+        observer.next();
+        observer.complete();
+      });
+    }
+    // Otherwise, delete remote
     return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
       tap({
         next: () => {
-          this.tasksSignal.update((tasks) => tasks.filter((t) => t.id !== id));
-          this.loadingSignal.set(false);
+          this._tasks.update((tasks) => tasks.filter((t) => t.id !== id));
+          this._loading.set(false);
         },
         error: (error) => {
-          this.errorSignal.set('Failed to delete task');
-          this.loadingSignal.set(false);
+          this._error.set(error.message);
+          this._loading.set(false);
         },
       })
     );
@@ -123,18 +198,18 @@ export class TaskService {
 
   // Returns all tasks for a specific project
   getTasksByProject(projectId: number): Observable<Task[]> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    this._loading.set(true);
+    this._error.set(null);
 
     return this.http.get<Task[]>(`${this.apiUrl}?projectId=${projectId}`).pipe(
       tap({
         next: (tasks) => {
-          this.tasksSignal.set(tasks);
-          this.loadingSignal.set(false);
+          this._tasks.set(tasks);
+          this._loading.set(false);
         },
         error: (error) => {
-          this.errorSignal.set('Failed to load tasks');
-          this.loadingSignal.set(false);
+          this._error.set('Failed to load tasks');
+          this._loading.set(false);
         },
       })
     );

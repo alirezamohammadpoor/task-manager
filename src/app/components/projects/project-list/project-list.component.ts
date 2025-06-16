@@ -15,13 +15,11 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { ProjectService } from '../../../services/project.service';
 import { TaskService } from '../../../services/task.service';
 import { Project, ProjectStatus } from '../../../models/project.interface';
-import { Task, TaskPriority, TaskStatus } from '../../../models/task.interface';
+import { Task, TaskStatus, TaskPriority } from '../../../models/task.model';
 import { ProjectFormComponent } from '../project-form/project-form.component';
 import { ConfirmationDialogComponent } from '../../../shared/confirmation-dialog/confirmation-dialog.component';
 import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
 import { CustomButtonComponent } from '../../../shared/components/custom-button/custom-button.component';
-import { PriorityLabelPipe } from '../../../shared/pipes/priority-label.pipe';
-import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.directive';
 
 @Component({
   selector: 'app-project-list',
@@ -41,8 +39,6 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
     MatDatepickerModule,
     MatNativeDateModule,
     CustomButtonComponent,
-    PriorityLabelPipe,
-    OverdueTaskDirective,
   ],
   template: `
     <div class="project-container">
@@ -162,12 +158,7 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
                   >
                     <div class="task-content">
                       <div class="task-main">
-                        <span
-                          class="task-title"
-                          appOverdueTask
-                          [dueDate]="task.dueDate"
-                          [isCompleted]="task.status === 'completed'"
-                        >
+                        <span class="task-title" [class]="task.status">
                           {{ task.title }}
                         </span>
                         <span class="task-description" *ngIf="task.description">
@@ -179,7 +170,7 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
                           {{ task.status }}
                         </span>
                         <span class="task-priority" [class]="task.priority">
-                          {{ task.priority | priorityLabel }}
+                          {{ task.priority }}
                         </span>
                         <span class="task-due-date" *ngIf="task.dueDate">
                           Due: {{ task.dueDate | date }}
@@ -451,8 +442,8 @@ export class ProjectListComponent implements OnInit {
     title: '',
     description: '',
     status: 'todo',
-    priority: 'medium' as TaskPriority,
-    dueDate: new Date(),
+    priority: 'medium',
+    dueDate: '',
   };
   taskStatusFilter: TaskStatus | 'all' = 'all';
   taskSortBy: 'priority' | 'dueDate' | 'status' = 'priority';
@@ -547,7 +538,7 @@ export class ProjectListComponent implements OnInit {
           description: '',
           status: 'todo',
           priority: 'medium' as TaskPriority,
-          dueDate: new Date(),
+          dueDate: '',
         };
       });
     }
