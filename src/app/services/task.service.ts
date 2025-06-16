@@ -10,43 +10,6 @@ export class TaskService {
   // API URL for tasks
   private apiUrl = 'http://localhost:3000/tasks';
 
-  // Mock data for testing
-  private mockTasks: Task[] = [
-    {
-      id: 1,
-      title: 'Design Homepage',
-      description: 'Create new homepage design',
-      status: 'todo',
-      priority: 'high',
-      dueDate: new Date('2024-03-01'),
-      projectId: 1,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date('2024-01-01'),
-    },
-    {
-      id: 2,
-      title: 'Implement Navigation',
-      description: 'Build responsive navigation menu',
-      status: 'in-progress',
-      priority: 'medium',
-      dueDate: new Date('2024-03-15'),
-      projectId: 1,
-      createdAt: new Date('2024-01-02'),
-      updatedAt: new Date('2024-01-15'),
-    },
-    {
-      id: 3,
-      title: 'Setup Development Environment',
-      description: 'Configure development tools and environment',
-      status: 'completed',
-      priority: 'high',
-      dueDate: new Date('2024-02-01'),
-      projectId: 2,
-      createdAt: new Date('2024-02-01'),
-      updatedAt: new Date('2024-02-15'),
-    },
-  ];
-
   // Signals for state management
   private tasksSignal = signal<Task[]>([]);
   private loadingSignal = signal<boolean>(false);

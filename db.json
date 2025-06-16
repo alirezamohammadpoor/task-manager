@@ -42,7 +42,7 @@
           "id": 3,
           "title": "Set up development environment",
           "description": "Configure React Native development environment",
-          "status": "completed",
+          "status": "todo",
           "priority": "high",
           "dueDate": "2024-03-22T10:00:00.000Z",
           "createdAt": "2024-03-19T10:00:00.000Z",
@@ -56,7 +56,7 @@
       "id": "1",
       "title": "Create wireframes",
       "description": "Design wireframes for all main pages",
-      "status": "completed",
+      "status": "todo",
       "priority": "high",
       "dueDate": "2024-03-25T10:00:00.000Z",
       "createdAt": "2024-03-20T10:00:00.000Z",
@@ -69,19 +69,10 @@
       "description": "Make the website responsive for all devices",
       "status": "todo",
       "priority": "medium",
-      "dueDate": "2024-03-30T10:00:00.000Z",
+      "dueDate": "2024-07-02T22:00:00.000Z",
       "createdAt": "2024-03-20T10:00:00.000Z",
       "updatedAt": "2024-03-20T10:00:00.000Z",
       "projectId": 1
-    },
-    {
-      "id": "2388",
-      "title": "asd",
-      "description": "asd",
-      "status": "todo",
-      "priority": "medium",
-      "dueDate": "2025-06-16T09:37:20.279Z",
-      "projectId": "1"
     }
   ]
 }
