@@ -6,12 +6,17 @@ import { TaskPriority } from '../../models/task.interface';
   standalone: true,
 })
 export class PriorityLabelPipe implements PipeTransform {
+  // Transform priority enum to a readable label
   transform(priority: TaskPriority): string {
-    const labels = {
-      low: 'Low Priority',
-      medium: 'Medium Priority',
-      high: 'High Priority',
-    };
-    return labels[priority] || priority;
+    switch (priority) {
+      case 'high':
+        return 'High';
+      case 'medium':
+        return 'Medium';
+      case 'low':
+        return 'Low';
+      default:
+        return 'Unknown';
+    }
   }
 }

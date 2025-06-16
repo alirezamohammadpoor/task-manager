@@ -1,12 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
 import { Observable, of, tap } from 'rxjs';
-import { Task } from '../models/task.interface';
+import { Task, TaskStatus, TaskPriority } from '../models/task.interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TaskService {
+  // API URL for tasks
   private apiUrl = 'http://localhost:3000/tasks';
 
   // Mock data for testing
@@ -56,42 +57,49 @@ export class TaskService {
   readonly loading = this.loadingSignal.asReadonly();
   readonly error = this.errorSignal.asReadonly();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    // Load tasks on service initialization
+    this.loadTasks();
+  }
 
+  // Loads all tasks from the API
+  private loadTasks(): void {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    this.http
+      .get<Task[]>(this.apiUrl)
+      .pipe(
+        tap({
+          next: (tasks) => {
+            this.tasksSignal.set(tasks);
+            this.loadingSignal.set(false);
+          },
+          error: (error) => {
+            this.errorSignal.set('Failed to load tasks');
+            this.loadingSignal.set(false);
+          },
+        })
+      )
+      .subscribe();
+  }
+
+  // Returns all tasks as an Observable
   getTasks(): Observable<Task[]> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    try {
-      const tasks = this.mockTasks;
-      this.tasksSignal.set(tasks);
-      return of(tasks);
-    } catch (err) {
-      this.errorSignal.set('Failed to load tasks');
-      return of([]);
-    } finally {
-      this.loadingSignal.set(false);
-    }
+    // Always load fresh data from the API
+    return this.http.get<Task[]>(this.apiUrl).pipe(
+      tap((tasks) => {
+        this.tasksSignal.set(tasks);
+      })
+    );
   }
 
+  // Returns a single task by ID
   getTask(id: number): Observable<Task> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    try {
-      const task = this.mockTasks.find((t) => t.id === id);
-      if (!task) {
-        throw new Error('Task not found');
-      }
-      return of(task);
-    } catch (err) {
-      this.errorSignal.set('Failed to load task');
-      return of(this.mockTasks[0]); // Fallback
-    } finally {
-      this.loadingSignal.set(false);
-    }
+    return this.http.get<Task>(`${this.apiUrl}/${id}`);
   }
 
+  // Creates a new task
   createTask(task: Task): Observable<Task> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
@@ -110,6 +118,7 @@ export class TaskService {
     );
   }
 
+  // Updates an existing task
   updateTask(id: number, task: Task): Observable<Task> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
@@ -130,6 +139,7 @@ export class TaskService {
     );
   }
 
+  // Deletes a task
   deleteTask(id: number): Observable<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
@@ -148,6 +158,7 @@ export class TaskService {
     );
   }
 
+  // Returns all tasks for a specific project
   getTasksByProject(projectId: number): Observable<Task[]> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);

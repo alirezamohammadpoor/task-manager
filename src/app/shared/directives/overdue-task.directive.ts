@@ -1,32 +1,26 @@
-import { Directive, ElementRef, Input, OnChanges } from '@angular/core';
+import { Directive, ElementRef, Input, OnInit } from '@angular/core';
 
 @Directive({
   selector: '[appOverdueTask]',
   standalone: true,
 })
-export class OverdueTaskDirective implements OnChanges {
-  @Input() dueDate?: Date;
-  @Input() isCompleted: boolean = false;
+export class OverdueTaskDirective implements OnInit {
+  // Input for the due date of the task
+  @Input() dueDate!: Date;
+  // Input to check if the task is completed
+  @Input() isCompleted!: boolean;
 
   constructor(private el: ElementRef) {}
 
-  ngOnChanges() {
-    if (this.isCompleted) {
-      this.el.nativeElement.style.color = '#888';
-      return;
+  ngOnInit() {
+    // Check if the task is overdue and not completed
+    if (this.isOverdue() && !this.isCompleted) {
+      this.el.nativeElement.style.color = 'red';
     }
+  }
 
-    if (this.dueDate) {
-      const today = new Date();
-      const dueDate = new Date(this.dueDate);
-
-      if (dueDate < today) {
-        this.el.nativeElement.style.color = '#f44336';
-        this.el.nativeElement.style.fontWeight = 'bold';
-      } else {
-        this.el.nativeElement.style.color = '';
-        this.el.nativeElement.style.fontWeight = '';
-      }
-    }
+  // Check if the task is overdue
+  private isOverdue(): boolean {
+    return new Date(this.dueDate) < new Date();
   }
 }

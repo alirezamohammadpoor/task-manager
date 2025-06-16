@@ -13,6 +13,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatMenuModule } from '@angular/material/menu';
 import { TaskService } from '../../../services/task.service';
 import { Task, TaskStatus, TaskPriority } from '../../../models/task.interface';
+import { effect } from '@angular/core';
 
 @Component({
   selector: 'app-task-list',
@@ -250,10 +251,7 @@ export class TaskListComponent implements OnInit {
     status: 'todo',
     priority: 'medium',
     dueDate: new Date(),
-    projectId: 1,
   };
-
-  // Filter and sort properties
   searchQuery: string = '';
   statusFilter: TaskStatus | 'all' = 'all';
   priorityFilter: TaskPriority | 'all' = 'all';
@@ -263,17 +261,25 @@ export class TaskListComponent implements OnInit {
   constructor(public taskService: TaskService) {}
 
   ngOnInit() {
+    // Load tasks immediately when component initializes
     this.loadTasks();
   }
 
   loadTasks() {
-    this.taskService.getTasks().subscribe(() => {
-      this.applyFilters();
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => {
+        console.log('Loaded tasks:', tasks); // Debug log
+        this.filteredTasks = tasks;
+        this.applyFilters();
+      },
+      error: (error) => {
+        console.error('Failed to load tasks:', error);
+      },
     });
   }
 
   applyFilters() {
-    let tasks = [...this.taskService.tasks()];
+    let tasks = [...this.filteredTasks];
 
     // Apply search filter
     if (this.searchQuery) {
@@ -296,10 +302,12 @@ export class TaskListComponent implements OnInit {
     tasks.sort((a, b) => {
       switch (this.sortBy) {
         case 'dueDate':
-          return a.dueDate.getTime() - b.dueDate.getTime();
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
         case 'priority':
-          const priorityOrder = { high: 3, medium: 2, low: 1 };
-          return priorityOrder[b.priority] - priorityOrder[a.priority];
+          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
         case 'title':
           return a.title.localeCompare(b.title);
         default:
@@ -313,39 +321,33 @@ export class TaskListComponent implements OnInit {
   addTask() {
     if (this.newTask.title) {
       this.taskService.createTask(this.newTask as Task).subscribe(() => {
+        this.loadTasks();
+        // Reset form
         this.newTask = {
           title: '',
           description: '',
           status: 'todo',
           priority: 'medium',
           dueDate: new Date(),
-          projectId: 1,
         };
-        this.applyFilters();
       });
     }
   }
 
   toggleTaskStatus(task: Task): void {
-    const newStatus = task.status === 'completed' ? 'todo' : 'completed';
-    this.taskService
-      .updateTask(task.id, {
-        ...task,
-        status: newStatus,
-      })
-      .subscribe({
-        next: () => {
-          this.loadTasks();
-        },
-        error: (error) => {
-          console.error('Error updating task:', error);
-        },
-      });
+    const updatedTask = {
+      ...task,
+      status:
+        task.status === 'completed' ? 'todo' : ('completed' as TaskStatus),
+    };
+    this.taskService.updateTask(task.id, updatedTask).subscribe(() => {
+      this.loadTasks();
+    });
   }
 
   deleteTask(id: number) {
     this.taskService.deleteTask(id).subscribe(() => {
-      this.applyFilters();
+      this.loadTasks();
     });
   }
 }

@@ -164,7 +164,7 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
                       <div class="task-main">
                         <span
                           class="task-title"
-                          [appOverdueTask]
+                          appOverdueTask
                           [dueDate]="task.dueDate"
                           [isCompleted]="task.status === 'completed'"
                         >
@@ -188,14 +188,16 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
                     </div>
                     <div class="task-actions">
                       <app-custom-button
+                        label="Edit"
                         icon="edit"
                         color="primary"
-                        (onClick)="openTaskEditDialog(task)"
+                        (clicked)="openTaskEditDialog(task)"
                       ></app-custom-button>
                       <app-custom-button
+                        label="Delete"
                         icon="delete"
                         color="warn"
-                        (onClick)="deleteTask(project.id, task.id)"
+                        (clicked)="deleteTask(project.id, task.id)"
                       ></app-custom-button>
                     </div>
                   </mat-list-item>
@@ -257,14 +259,16 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
 
               <div class="project-actions">
                 <app-custom-button
+                  label="Edit"
                   icon="edit"
                   color="primary"
-                  (onClick)="openEditDialog(project)"
+                  (clicked)="openEditDialog(project)"
                 ></app-custom-button>
                 <app-custom-button
+                  label="Delete"
                   icon="delete"
                   color="warn"
-                  (onClick)="deleteProject(project.id)"
+                  (clicked)="deleteProject(project.id)"
                 ></app-custom-button>
               </div>
             </mat-expansion-panel>
@@ -467,10 +471,13 @@ export class ProjectListComponent implements OnInit {
     this.projectService.getProjects().subscribe((projects) => {
       this.projects = projects;
       this.filteredProjects = projects;
+
       // Load tasks for each project
-      this.projects.forEach((project) => {
+      projects.forEach((project) => {
         this.taskService.getTasksByProject(project.id).subscribe((tasks) => {
           project.tasks = tasks;
+          // Force change detection by creating a new array
+          this.filteredProjects = [...this.projects];
         });
       });
     });
@@ -580,22 +587,15 @@ export class ProjectListComponent implements OnInit {
 
   openTaskEditDialog(task: Task): void {
     const dialogRef = this.dialog.open(TaskFormComponent, {
+      width: '500px',
       data: { task },
     });
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.taskService
-          .updateTask(task.id, result)
-          .subscribe((updatedTask) => {
-            const project = this.projects.find((p) => p.id === task.projectId);
-            if (project) {
-              const index = project.tasks.findIndex((t) => t.id === task.id);
-              if (index !== -1) {
-                project.tasks[index] = updatedTask;
-              }
-            }
-          });
+        this.taskService.updateTask(task.id, result).subscribe(() => {
+          this.loadProjects();
+        });
       }
     });
   }

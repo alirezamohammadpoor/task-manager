@@ -7,6 +7,7 @@ import { Project } from '../models/project.interface';
   providedIn: 'root',
 })
 export class ProjectService {
+  // API URL for projects
   private apiUrl = 'http://localhost:3000/projects';
 
   // Signals for state management
@@ -20,9 +21,11 @@ export class ProjectService {
   readonly error = this.errorSignal.asReadonly();
 
   constructor(private http: HttpClient) {
+    // Load projects on service initialization
     this.loadProjects();
   }
 
+  // Loads all projects from the API
   private loadProjects(): void {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
@@ -44,14 +47,17 @@ export class ProjectService {
       .subscribe();
   }
 
+  // Returns all projects as an Observable
   getProjects(): Observable<Project[]> {
     return this.http.get<Project[]>(this.apiUrl);
   }
 
+  // Returns a single project by ID
   getProject(id: number): Observable<Project> {
     return this.http.get<Project>(`${this.apiUrl}/${id}`);
   }
 
+  // Creates a new project
   createProject(project: Project): Observable<Project> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
@@ -70,6 +76,7 @@ export class ProjectService {
     );
   }
 
+  // Updates an existing project
   updateProject(id: number, project: Project): Observable<Project> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
@@ -90,6 +97,7 @@ export class ProjectService {
     );
   }
 
+  // Deletes a project
   deleteProject(id: number): Observable<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);

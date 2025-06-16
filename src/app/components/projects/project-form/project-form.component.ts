@@ -103,6 +103,7 @@ import { Project, ProjectStatus } from '../../../models/project.interface';
   ],
 })
 export class ProjectFormComponent {
+  // Form group for project data
   projectForm: FormGroup;
 
   constructor(
@@ -110,6 +111,7 @@ export class ProjectFormComponent {
     private dialogRef: MatDialogRef<ProjectFormComponent>,
     @Inject(MAT_DIALOG_DATA) public data: Project | null
   ) {
+    // Initialize the form with data if available
     this.projectForm = this.fb.group({
       name: [data?.name || '', [Validators.required, Validators.minLength(3)]],
       description: [data?.description || '', Validators.required],
@@ -117,6 +119,7 @@ export class ProjectFormComponent {
     });
   }
 
+  // Handle form submission
   onSubmit() {
     if (this.projectForm.valid) {
       const formValue = this.projectForm.value;
@@ -130,6 +133,7 @@ export class ProjectFormComponent {
     }
   }
 
+  // Handle cancel button click
   onCancel() {
     this.dialogRef.close();
   }

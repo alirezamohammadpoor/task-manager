@@ -12,13 +12,13 @@ import { MatButtonModule } from '@angular/material/button';
   standalone: true,
   imports: [CommonModule, MatDialogModule, MatButtonModule],
   template: `
-    <h2 mat-dialog-title>Confirm Action</h2>
+    <h2 mat-dialog-title>Confirm</h2>
     <mat-dialog-content>
-      {{ data.message }}
+      <p>{{ data.message }}</p>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button (click)="onNoClick()">Cancel</button>
-      <button mat-raised-button color="warn" (click)="onYesClick()">
+      <button mat-button (click)="onCancel()">Cancel</button>
+      <button mat-raised-button color="warn" (click)="onConfirm()">
         Confirm
       </button>
     </mat-dialog-actions>
@@ -37,11 +37,13 @@ export class ConfirmationDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: { message: string }
   ) {}
 
-  onNoClick(): void {
+  // Handle cancel button click
+  onCancel(): void {
     this.dialogRef.close(false);
   }
 
-  onYesClick(): void {
+  // Handle confirm button click
+  onConfirm(): void {
     this.dialogRef.close(true);
   }
 }
