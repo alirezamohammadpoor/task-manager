@@ -28,6 +28,7 @@ import { Task } from '../../../models/task.interface';
           <p class="description">{{ project?.description }}</p>
           <div class="meta-info">
             <span>Status: {{ project?.status }}</span>
+            <span>Deadline: {{ project?.deadline | date }}</span>
             <span>Created: {{ project?.createdAt | date }}</span>
           </div>
         </mat-card-content>

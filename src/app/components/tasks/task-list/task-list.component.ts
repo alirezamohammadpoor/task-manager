@@ -1,6 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  FormControl,
+  Validators,
+} from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
@@ -10,17 +16,16 @@ import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
-import { MatMenuModule } from '@angular/material/menu';
 import { TaskService } from '../../../services/task.service';
-import { Task, TaskStatus, TaskPriority } from '../../../models/task.interface';
-import { effect } from '@angular/core';
+import { Task, TaskStatus } from '../../../models/task.interface';
+import { PriorityLabelPipe } from '../../../shared/pipes/priority-label.pipe';
 
 @Component({
   selector: 'app-task-list',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
     MatInputModule,
@@ -30,7 +35,7 @@ import { effect } from '@angular/core';
     MatIconModule,
     MatProgressSpinnerModule,
     MatSelectModule,
-    MatMenuModule,
+    PriorityLabelPipe,
   ],
   template: `
     <div class="task-container">
@@ -58,18 +63,14 @@ import { effect } from '@angular/core';
               <mat-label>Search Tasks</mat-label>
               <input
                 matInput
-                [(ngModel)]="searchQuery"
-                (input)="applyFilters()"
+                [formControl]="searchControl"
                 placeholder="Search by title..."
               />
             </mat-form-field>
 
             <mat-form-field appearance="fill">
               <mat-label>Status</mat-label>
-              <mat-select
-                [(ngModel)]="statusFilter"
-                (selectionChange)="applyFilters()"
-              >
+              <mat-select [formControl]="statusFilterControl">
                 <mat-option value="all">All</mat-option>
                 <mat-option value="todo">To Do</mat-option>
                 <mat-option value="in-progress">In Progress</mat-option>
@@ -79,10 +80,7 @@ import { effect } from '@angular/core';
 
             <mat-form-field appearance="fill">
               <mat-label>Priority</mat-label>
-              <mat-select
-                [(ngModel)]="priorityFilter"
-                (selectionChange)="applyFilters()"
-              >
+              <mat-select [formControl]="priorityFilterControl">
                 <mat-option value="all">All</mat-option>
                 <mat-option value="low">Low</mat-option>
                 <mat-option value="medium">Medium</mat-option>
@@ -92,10 +90,7 @@ import { effect } from '@angular/core';
 
             <mat-form-field appearance="fill">
               <mat-label>Sort By</mat-label>
-              <mat-select
-                [(ngModel)]="sortBy"
-                (selectionChange)="applyFilters()"
-              >
+              <mat-select [formControl]="sortByControl">
                 <mat-option value="dueDate">Due Date</mat-option>
                 <mat-option value="priority">Priority</mat-option>
                 <mat-option value="title">Title</mat-option>
@@ -111,25 +106,24 @@ import { effect } from '@angular/core';
           <mat-card-title>Add New Task</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <form (ngSubmit)="addTask()">
+          <form [formGroup]="taskForm" (ngSubmit)="addTask()">
             <mat-form-field appearance="fill">
               <mat-label>Task Title</mat-label>
-              <input
-                matInput
-                [(ngModel)]="newTask.title"
-                name="title"
-                required
-              />
+              <input matInput formControlName="title" />
+              <mat-error *ngIf="taskForm.get('title')?.hasError('required')">
+                Title is required
+              </mat-error>
             </mat-form-field>
             <mat-form-field appearance="fill">
               <mat-label>Description</mat-label>
-              <input
-                matInput
-                [(ngModel)]="newTask.description"
-                name="description"
-              />
+              <input matInput formControlName="description" />
             </mat-form-field>
-            <button mat-raised-button color="primary" type="submit">
+            <button
+              mat-raised-button
+              color="primary"
+              type="submit"
+              [disabled]="taskForm.invalid"
+            >
               Add Task
             </button>
           </form>
@@ -152,7 +146,7 @@ import { effect } from '@angular/core';
                 {{ task.title }}
               </mat-checkbox>
               <span class="task-priority" [class]="task.priority">
-                {{ task.priority }}
+                {{ task.priority | priorityLabel }}
               </span>
               <span class="task-due-date">
                 Due: {{ task.dueDate | date }}
@@ -245,68 +239,84 @@ import { effect } from '@angular/core';
   ],
 })
 export class TaskListComponent implements OnInit {
-  newTask: Partial<Task> = {
-    title: '',
-    description: '',
-    status: 'todo',
-    priority: 'medium',
-    dueDate: new Date(),
-  };
-  searchQuery: string = '';
-  statusFilter: TaskStatus | 'all' = 'all';
-  priorityFilter: TaskPriority | 'all' = 'all';
-  sortBy: 'dueDate' | 'priority' | 'title' = 'dueDate';
+  allTasks: Task[] = [];
   filteredTasks: Task[] = [];
 
-  constructor(public taskService: TaskService) {}
+  // Filter controls
+  searchControl = new FormControl('');
+  statusFilterControl = new FormControl('all');
+  priorityFilterControl = new FormControl('all');
+  sortByControl = new FormControl('dueDate');
+
+  // Add Task form
+  taskForm: FormGroup;
+
+  constructor(
+    private fb: FormBuilder,
+    public taskService: TaskService
+  ) {
+    this.taskForm = this.fb.group({
+      title: ['', Validators.required],
+      description: [''],
+    });
+  }
 
   ngOnInit() {
-    // Load tasks immediately when component initializes
     this.loadTasks();
+
+    this.searchControl.valueChanges.subscribe(() => this.applyFilters());
+    this.statusFilterControl.valueChanges.subscribe(() => this.applyFilters());
+    this.priorityFilterControl.valueChanges.subscribe(() =>
+      this.applyFilters()
+    );
+    this.sortByControl.valueChanges.subscribe(() => this.applyFilters());
   }
 
   loadTasks() {
     this.taskService.getTasks().subscribe({
       next: (tasks) => {
-        console.log('Loaded tasks:', tasks); // Debug log
-        this.filteredTasks = tasks;
+        this.allTasks = tasks;
         this.applyFilters();
       },
-      error: (error) => {
-        console.error('Failed to load tasks:', error);
-      },
+      error: () => {},
     });
   }
 
   applyFilters() {
-    let tasks = [...this.filteredTasks];
+    let tasks = [...this.allTasks];
+    const search = (this.searchControl.value || '').toLowerCase();
+    const status = this.statusFilterControl.value;
+    const priority = this.priorityFilterControl.value;
+    const sortBy = this.sortByControl.value;
 
-    // Apply search filter
-    if (this.searchQuery) {
+    if (search) {
       tasks = tasks.filter((task) =>
-        task.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+        task.title.toLowerCase().includes(search)
       );
     }
 
-    // Apply status filter
-    if (this.statusFilter !== 'all') {
-      tasks = tasks.filter((task) => task.status === this.statusFilter);
+    if (status !== 'all') {
+      tasks = tasks.filter((task) => task.status === status);
     }
 
-    // Apply priority filter
-    if (this.priorityFilter !== 'all') {
-      tasks = tasks.filter((task) => task.priority === this.priorityFilter);
+    if (priority !== 'all') {
+      tasks = tasks.filter((task) => task.priority === priority);
     }
 
-    // Apply sorting
     tasks.sort((a, b) => {
-      switch (this.sortBy) {
+      switch (sortBy) {
         case 'dueDate':
           if (!a.dueDate) return 1;
           if (!b.dueDate) return -1;
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          return (
+            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+          );
         case 'priority':
-          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          const priorityOrder: Record<string, number> = {
+            high: 0,
+            medium: 1,
+            low: 2,
+          };
           return priorityOrder[a.priority] - priorityOrder[b.priority];
         case 'title':
           return a.title.localeCompare(b.title);
@@ -319,17 +329,20 @@ export class TaskListComponent implements OnInit {
   }
 
   addTask() {
-    if (this.newTask.title) {
-      this.taskService.createTask(this.newTask as Task).subscribe(() => {
-        this.loadTasks();
-        // Reset form
-        this.newTask = {
-          title: '',
-          description: '',
-          status: 'todo',
-          priority: 'medium',
-          dueDate: new Date(),
-        };
+    if (this.taskForm.valid) {
+      const task: Task = {
+        ...this.taskForm.value,
+        status: 'todo',
+        priority: 'medium',
+        dueDate: new Date(),
+        projectId: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as Task;
+      this.taskService.createTask(task).subscribe((newTask) => {
+        this.allTasks.push(newTask);
+        this.applyFilters();
+        this.taskForm.reset({ title: '', description: '' });
       });
     }
   }
@@ -341,13 +354,16 @@ export class TaskListComponent implements OnInit {
         task.status === 'completed' ? 'todo' : ('completed' as TaskStatus),
     };
     this.taskService.updateTask(task.id, updatedTask).subscribe(() => {
-      this.loadTasks();
+      const i = this.allTasks.findIndex((t) => t.id === task.id);
+      if (i !== -1) this.allTasks[i] = updatedTask;
+      this.applyFilters();
     });
   }
 
   deleteTask(id: number) {
     this.taskService.deleteTask(id).subscribe(() => {
-      this.loadTasks();
+      this.allTasks = this.allTasks.filter((t) => t.id !== id);
+      this.applyFilters();
     });
   }
 }

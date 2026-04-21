@@ -50,8 +50,7 @@ import { Task } from '../../models/task.interface';
               <div class="stat-info">
                 <h2>Tasks by Status</h2>
                 <div class="status-stats">
-                  <p>Todo: {{ tasksByStatus['todo'] }}</p>
-                  <p>In Progress: {{ tasksByStatus['in-progress'] }}</p>
+                  <p>Pending: {{ tasksByStatus['todo'] }}</p>
                   <p>Completed: {{ tasksByStatus['completed'] }}</p>
                 </div>
               </div>

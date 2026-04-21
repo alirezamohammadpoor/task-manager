@@ -22,9 +22,9 @@ describe('ProjectService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should make GET request to load projects', () => {
+  it('should make GET request to load projects from DummyJSON products', () => {
     service.getProjects().subscribe();
-    const req = httpMock.expectOne('http://localhost:3000/projects');
+    const req = httpMock.expectOne('https://dummyjson.com/products?limit=10');
     expect(req.request.method).toBe('GET');
   });
 });

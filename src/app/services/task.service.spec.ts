@@ -22,9 +22,15 @@ describe('TaskService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should make GET request to load tasks', () => {
+  it('should make GET request to load tasks from DummyJSON', () => {
+    service.getTasks().subscribe();
+    const req = httpMock.expectOne('https://dummyjson.com/todos?limit=50');
+    expect(req.request.method).toBe('GET');
+  });
+
+  it('should make GET request to load tasks by project (userId)', () => {
     service.getTasksByProject(1).subscribe();
-    const req = httpMock.expectOne('http://localhost:3000/tasks?projectId=1');
+    const req = httpMock.expectOne('https://dummyjson.com/todos/user/1');
     expect(req.request.method).toBe('GET');
   });
 });

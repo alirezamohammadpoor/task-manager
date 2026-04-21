@@ -6,7 +6,6 @@ import { TaskPriority } from '../../models/task.interface';
   standalone: true,
 })
 export class PriorityLabelPipe implements PipeTransform {
-  // Transform priority enum to a readable label
   transform(priority: TaskPriority): string {
     switch (priority) {
       case 'high':

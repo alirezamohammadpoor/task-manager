@@ -1,6 +1,11 @@
 import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {
+  FormBuilder,
+  FormGroup,
+  Validators,
+  ReactiveFormsModule,
+} from '@angular/forms';
 import {
   MatDialogModule,
   MAT_DIALOG_DATA,
@@ -12,14 +17,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { Task, TaskStatus, TaskPriority } from '../../../models/task.interface';
+import { Task } from '../../../models/task.interface';
 
 @Component({
   selector: 'app-task-form',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
+    ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
     MatFormFieldModule,
@@ -30,63 +35,74 @@ import { Task, TaskStatus, TaskPriority } from '../../../models/task.interface';
   ],
   template: `
     <h2 mat-dialog-title>{{ data.task ? 'Edit Task' : 'New Task' }}</h2>
-    <mat-dialog-content>
-      <form (ngSubmit)="onSubmit()" #taskForm="ngForm">
+    <form [formGroup]="taskForm" (ngSubmit)="onSubmit()">
+      <mat-dialog-content>
         <mat-form-field appearance="fill">
           <mat-label>Title</mat-label>
-          <input matInput [(ngModel)]="task.title" name="title" required />
+          <input matInput formControlName="title" />
+          <mat-error *ngIf="taskForm.get('title')?.hasError('required')">
+            Title is required
+          </mat-error>
         </mat-form-field>
 
         <mat-form-field appearance="fill">
           <mat-label>Description</mat-label>
-          <input matInput [(ngModel)]="task.description" name="description" />
+          <input matInput formControlName="description" />
+          <mat-error *ngIf="taskForm.get('description')?.hasError('maxlength')">
+            Description cannot exceed 500 characters
+          </mat-error>
         </mat-form-field>
 
         <mat-form-field appearance="fill">
           <mat-label>Status</mat-label>
-          <mat-select [(ngModel)]="task.status" name="status" required>
-            <mat-option [value]="'todo'">To Do</mat-option>
-            <mat-option [value]="'in-progress'">In Progress</mat-option>
-            <mat-option [value]="'completed'">Completed</mat-option>
+          <mat-select formControlName="status">
+            <mat-option value="todo">To Do</mat-option>
+            <mat-option value="in-progress">In Progress</mat-option>
+            <mat-option value="completed">Completed</mat-option>
           </mat-select>
+          <mat-error *ngIf="taskForm.get('status')?.hasError('required')">
+            Status is required
+          </mat-error>
         </mat-form-field>
 
         <mat-form-field appearance="fill">
           <mat-label>Priority</mat-label>
-          <mat-select [(ngModel)]="task.priority" name="priority" required>
-            <mat-option [value]="'low'">Low</mat-option>
-            <mat-option [value]="'medium'">Medium</mat-option>
-            <mat-option [value]="'high'">High</mat-option>
+          <mat-select formControlName="priority">
+            <mat-option value="low">Low</mat-option>
+            <mat-option value="medium">Medium</mat-option>
+            <mat-option value="high">High</mat-option>
           </mat-select>
+          <mat-error *ngIf="taskForm.get('priority')?.hasError('required')">
+            Priority is required
+          </mat-error>
         </mat-form-field>
 
         <mat-form-field appearance="fill">
           <mat-label>Due Date</mat-label>
-          <input
-            matInput
-            [matDatepicker]="picker"
-            [(ngModel)]="task.dueDate"
-            name="dueDate"
-          />
+          <input matInput [matDatepicker]="picker" formControlName="dueDate" />
           <mat-datepicker-toggle
             matSuffix
             [for]="picker"
           ></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
+          <mat-error *ngIf="taskForm.get('dueDate')?.hasError('required')">
+            Due date is required
+          </mat-error>
         </mat-form-field>
-      </form>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button (click)="onCancel()">Cancel</button>
-      <button
-        mat-raised-button
-        color="primary"
-        (click)="onSubmit()"
-        [disabled]="!taskForm.form.valid"
-      >
-        {{ data.task ? 'Update' : 'Create' }}
-      </button>
-    </mat-dialog-actions>
+      </mat-dialog-content>
+
+      <mat-dialog-actions align="end">
+        <button mat-button type="button" (click)="onCancel()">Cancel</button>
+        <button
+          mat-raised-button
+          color="primary"
+          type="submit"
+          [disabled]="taskForm.invalid"
+        >
+          {{ data.task ? 'Update' : 'Create' }}
+        </button>
+      </mat-dialog-actions>
+    </form>
   `,
   styles: [
     `
@@ -96,34 +112,35 @@ import { Task, TaskStatus, TaskPriority } from '../../../models/task.interface';
       form {
         display: flex;
         flex-direction: column;
-        gap: 16px;
       }
       mat-form-field {
         width: 100%;
+        margin-bottom: 8px;
       }
     `,
   ],
 })
 export class TaskFormComponent {
-  task: Partial<Task>;
+  taskForm: FormGroup;
 
   constructor(
+    private fb: FormBuilder,
     public dialogRef: MatDialogRef<TaskFormComponent>,
     @Inject(MAT_DIALOG_DATA) public data: { task?: Task }
   ) {
-    this.task = data.task
-      ? { ...data.task }
-      : {
-          title: '',
-          description: '',
-          status: 'todo' as TaskStatus,
-          priority: 'medium' as TaskPriority,
-          dueDate: new Date(),
-        };
+    this.taskForm = this.fb.group({
+      title: [data.task?.title || '', Validators.required],
+      description: [data.task?.description || '', Validators.maxLength(500)],
+      status: [data.task?.status || 'todo', Validators.required],
+      priority: [data.task?.priority || 'medium', Validators.required],
+      dueDate: [data.task?.dueDate || new Date(), Validators.required],
+    });
   }
 
   onSubmit(): void {
-    this.dialogRef.close(this.task);
+    if (this.taskForm.valid) {
+      this.dialogRef.close(this.taskForm.value);
+    }
   }
 
   onCancel(): void {

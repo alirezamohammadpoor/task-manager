@@ -10,12 +10,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 import {
   MatDialogRef,
   MAT_DIALOG_DATA,
   MatDialogModule,
 } from '@angular/material/dialog';
-import { Project, ProjectStatus } from '../../../models/project.interface';
+import { Project } from '../../../models/project.interface';
 
 @Component({
   selector: 'app-project-form',
@@ -28,6 +30,8 @@ import { Project, ProjectStatus } from '../../../models/project.interface';
     MatSelectModule,
     MatButtonModule,
     MatDialogModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
   ],
   template: `
     <h2 mat-dialog-title>{{ data ? 'Edit Project' : 'New Project' }}</h2>
@@ -74,6 +78,16 @@ import { Project, ProjectStatus } from '../../../models/project.interface';
             Status is required
           </mat-error>
         </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Deadline</mat-label>
+          <input matInput [matDatepicker]="picker" formControlName="deadline" />
+          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+          <mat-error *ngIf="projectForm.get('deadline')?.hasError('required')">
+            Deadline is required
+          </mat-error>
+        </mat-form-field>
       </mat-dialog-content>
 
       <mat-dialog-actions align="end">
@@ -95,7 +109,6 @@ import { Project, ProjectStatus } from '../../../models/project.interface';
         width: 100%;
         margin-bottom: 16px;
       }
-
       mat-dialog-content {
         min-width: 400px;
       }
@@ -103,7 +116,6 @@ import { Project, ProjectStatus } from '../../../models/project.interface';
   ],
 })
 export class ProjectFormComponent {
-  // Form group for project data
   projectForm: FormGroup;
 
   constructor(
@@ -111,20 +123,18 @@ export class ProjectFormComponent {
     private dialogRef: MatDialogRef<ProjectFormComponent>,
     @Inject(MAT_DIALOG_DATA) public data: Project | null
   ) {
-    // Initialize the form with data if available
     this.projectForm = this.fb.group({
       name: [data?.name || '', [Validators.required, Validators.minLength(3)]],
       description: [data?.description || '', Validators.required],
       status: [data?.status || 'active', Validators.required],
+      deadline: [data?.deadline || new Date(), Validators.required],
     });
   }
 
-  // Handle form submission
   onSubmit() {
     if (this.projectForm.valid) {
-      const formValue = this.projectForm.value;
       const projectData = {
-        ...formValue,
+        ...this.projectForm.value,
         createdAt: this.data?.createdAt || new Date(),
         updatedAt: new Date(),
         tasks: this.data?.tasks || [],
@@ -133,7 +143,6 @@ export class ProjectFormComponent {
     }
   }
 
-  // Handle cancel button click
   onCancel() {
     this.dialogRef.close();
   }

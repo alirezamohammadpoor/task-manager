@@ -37,12 +37,10 @@ export class ConfirmationDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: { message: string }
   ) {}
 
-  // Handle cancel button click
   onCancel(): void {
     this.dialogRef.close(false);
   }
 
-  // Handle confirm button click
   onConfirm(): void {
     this.dialogRef.close(true);
   }

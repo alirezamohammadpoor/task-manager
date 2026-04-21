@@ -1,6 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  FormControl,
+  Validators,
+} from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
@@ -14,8 +20,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { ProjectService } from '../../../services/project.service';
 import { TaskService } from '../../../services/task.service';
-import { Project, ProjectStatus } from '../../../models/project.interface';
-import { Task, TaskPriority, TaskStatus } from '../../../models/task.interface';
+import { Project } from '../../../models/project.interface';
+import { Task } from '../../../models/task.interface';
 import { ProjectFormComponent } from '../project-form/project-form.component';
 import { ConfirmationDialogComponent } from '../../../shared/confirmation-dialog/confirmation-dialog.component';
 import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
@@ -28,7 +34,7 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
+    ReactiveFormsModule,
     MatCardModule,
     MatButtonModule,
     MatInputModule,
@@ -54,8 +60,7 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
               <mat-label>Search Projects</mat-label>
               <input
                 matInput
-                [(ngModel)]="searchQuery"
-                (input)="applyFilter()"
+                [formControl]="searchControl"
                 placeholder="Search by project name..."
               />
               <mat-icon matSuffix>search</mat-icon>
@@ -63,10 +68,7 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
 
             <mat-form-field appearance="fill" class="status-field">
               <mat-label>Status</mat-label>
-              <mat-select
-                [(ngModel)]="statusFilter"
-                (selectionChange)="applyFilter()"
-              >
+              <mat-select [formControl]="statusFilterControl">
                 <mat-option value="all">All</mat-option>
                 <mat-option value="active">Active</mat-option>
                 <mat-option value="completed">Completed</mat-option>
@@ -83,25 +85,37 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
           <mat-card-title>Add New Project</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <form (ngSubmit)="addProject()">
+          <form [formGroup]="projectForm" (ngSubmit)="addProject()">
             <mat-form-field appearance="fill">
               <mat-label>Project Name</mat-label>
-              <input
-                matInput
-                [(ngModel)]="newProject.name"
-                name="name"
-                required
-              />
+              <input matInput formControlName="name" />
+              <mat-error *ngIf="projectForm.get('name')?.hasError('required')">
+                Project name is required
+              </mat-error>
             </mat-form-field>
             <mat-form-field appearance="fill">
               <mat-label>Description</mat-label>
+              <input matInput formControlName="description" />
+            </mat-form-field>
+            <mat-form-field appearance="fill">
+              <mat-label>Deadline</mat-label>
               <input
                 matInput
-                [(ngModel)]="newProject.description"
-                name="description"
+                [matDatepicker]="projectPicker"
+                formControlName="deadline"
               />
+              <mat-datepicker-toggle
+                matSuffix
+                [for]="projectPicker"
+              ></mat-datepicker-toggle>
+              <mat-datepicker #projectPicker></mat-datepicker>
             </mat-form-field>
-            <button mat-raised-button color="primary" type="submit">
+            <button
+              mat-raised-button
+              color="primary"
+              type="submit"
+              [disabled]="projectForm.invalid"
+            >
               Add Project
             </button>
           </form>
@@ -121,7 +135,9 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
                   {{ project.name }}
                 </mat-panel-title>
                 <mat-panel-description>
-                  {{ project.description }}
+                  {{ project.description }} | Deadline:
+                  {{ project.deadline | date }} | Tasks:
+                  {{ project.tasks.length }}
                 </mat-panel-description>
               </mat-expansion-panel-header>
 
@@ -132,22 +148,18 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
                   <div class="tasks-controls">
                     <mat-form-field appearance="fill" class="task-filter">
                       <mat-label>Status</mat-label>
-                      <mat-select
-                        [(ngModel)]="taskStatusFilter"
-                        (selectionChange)="applyTaskFilter(project)"
-                      >
+                      <mat-select [formControl]="taskStatusFilterControl">
                         <mat-option value="all">All</mat-option>
                         <mat-option value="todo">To Do</mat-option>
-                        <mat-option value="in-progress">In Progress</mat-option>
+                        <mat-option value="in-progress"
+                          >In Progress</mat-option
+                        >
                         <mat-option value="completed">Completed</mat-option>
                       </mat-select>
                     </mat-form-field>
                     <mat-form-field appearance="fill" class="task-sort">
                       <mat-label>Sort By</mat-label>
-                      <mat-select
-                        [(ngModel)]="taskSortBy"
-                        (selectionChange)="applyTaskSort(project)"
-                      >
+                      <mat-select [formControl]="taskSortControl">
                         <mat-option value="priority">Priority</mat-option>
                         <mat-option value="dueDate">Due Date</mat-option>
                         <mat-option value="status">Status</mat-option>
@@ -157,7 +169,7 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
                 </div>
                 <mat-list>
                   <mat-list-item
-                    *ngFor="let task of getFilteredTasks(project)"
+                    *ngFor="let task of filteredTasksMap[project.id]"
                     class="task-item"
                   >
                     <div class="task-content">
@@ -205,56 +217,54 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
               </div>
 
               <!-- Add Task Form -->
-              <form (ngSubmit)="addTask(project.id)" class="add-task-form">
+              <form
+                [formGroup]="taskForm"
+                (ngSubmit)="addTask(project.id)"
+                class="add-task-form"
+              >
                 <mat-form-field appearance="fill">
                   <mat-label>Task Title</mat-label>
-                  <input
-                    matInput
-                    [(ngModel)]="newTask.title"
-                    name="title"
-                    required
-                  />
+                  <input matInput formControlName="title" />
+                  <mat-error
+                    *ngIf="taskForm.get('title')?.hasError('required')"
+                  >
+                    Title is required
+                  </mat-error>
                 </mat-form-field>
                 <mat-form-field appearance="fill">
                   <mat-label>Description</mat-label>
-                  <input
-                    matInput
-                    [(ngModel)]="newTask.description"
-                    name="description"
-                  />
+                  <input matInput formControlName="description" />
                 </mat-form-field>
                 <mat-form-field appearance="fill">
                   <mat-label>Priority</mat-label>
-                  <mat-select
-                    [(ngModel)]="newTask.priority"
-                    name="priority"
-                    required
-                  >
-                    <mat-option [value]="'low'">Low</mat-option>
-                    <mat-option [value]="'medium'">Medium</mat-option>
-                    <mat-option [value]="'high'">High</mat-option>
+                  <mat-select formControlName="priority">
+                    <mat-option value="low">Low</mat-option>
+                    <mat-option value="medium">Medium</mat-option>
+                    <mat-option value="high">High</mat-option>
                   </mat-select>
                 </mat-form-field>
                 <mat-form-field appearance="fill">
                   <mat-label>Due Date</mat-label>
                   <input
                     matInput
-                    [matDatepicker]="picker"
-                    [(ngModel)]="newTask.dueDate"
-                    name="dueDate"
+                    [matDatepicker]="taskPicker"
+                    formControlName="dueDate"
                   />
                   <mat-datepicker-toggle
                     matSuffix
-                    [for]="picker"
+                    [for]="taskPicker"
                   ></mat-datepicker-toggle>
-                  <mat-datepicker #picker></mat-datepicker>
+                  <mat-datepicker #taskPicker></mat-datepicker>
                 </mat-form-field>
-                <app-custom-button
-                  label="Add Task"
-                  icon="add"
+                <button
+                  mat-raised-button
                   color="primary"
                   type="submit"
-                ></app-custom-button>
+                  [disabled]="taskForm.invalid"
+                >
+                  <mat-icon>add</mat-icon>
+                  Add Task
+                </button>
               </form>
 
               <div class="project-actions">
@@ -439,32 +449,51 @@ import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.di
 export class ProjectListComponent implements OnInit {
   projects: Project[] = [];
   filteredProjects: Project[] = [];
-  searchQuery: string = '';
-  statusFilter: ProjectStatus | 'all' = 'all';
-  newProject: Partial<Project> = {
-    name: '',
-    description: '',
-    status: 'active',
-    tasks: [],
-  };
-  newTask: Partial<Task> = {
-    title: '',
-    description: '',
-    status: 'todo',
-    priority: 'medium' as TaskPriority,
-    dueDate: new Date(),
-  };
-  taskStatusFilter: TaskStatus | 'all' = 'all';
-  taskSortBy: 'priority' | 'dueDate' | 'status' = 'priority';
+  filteredTasksMap: { [projectId: number]: Task[] } = {};
+
+  // Filter controls
+  searchControl = new FormControl('');
+  statusFilterControl = new FormControl('all');
+  taskStatusFilterControl = new FormControl('all');
+  taskSortControl = new FormControl('priority');
+
+  // Add Project form
+  projectForm: FormGroup;
+
+  // Add Task form
+  taskForm: FormGroup;
 
   constructor(
+    private fb: FormBuilder,
     private projectService: ProjectService,
     private taskService: TaskService,
     private dialog: MatDialog
-  ) {}
+  ) {
+    this.projectForm = this.fb.group({
+      name: ['', Validators.required],
+      description: [''],
+      deadline: [new Date()],
+    });
+
+    this.taskForm = this.fb.group({
+      title: ['', Validators.required],
+      description: [''],
+      priority: ['medium', Validators.required],
+      dueDate: [new Date(), Validators.required],
+    });
+  }
 
   ngOnInit() {
     this.loadProjects();
+
+    this.searchControl.valueChanges.subscribe(() => this.applyFilter());
+    this.statusFilterControl.valueChanges.subscribe(() => this.applyFilter());
+    this.taskStatusFilterControl.valueChanges.subscribe(() =>
+      this.updateFilteredTasksMap()
+    );
+    this.taskSortControl.valueChanges.subscribe(() =>
+      this.updateFilteredTasksMap()
+    );
   }
 
   loadProjects() {
@@ -472,41 +501,41 @@ export class ProjectListComponent implements OnInit {
       this.projects = projects;
       this.filteredProjects = projects;
 
-      // Load tasks for each project
       projects.forEach((project) => {
         this.taskService.getTasksByProject(project.id).subscribe((tasks) => {
           project.tasks = tasks;
-          // Force change detection by creating a new array
           this.filteredProjects = [...this.projects];
+          this.updateFilteredTasksMap();
         });
       });
     });
   }
 
   applyFilter() {
+    const search = (this.searchControl.value || '').toLowerCase();
+    const status = this.statusFilterControl.value;
+
     this.filteredProjects = this.projects.filter((project) => {
-      const matchesSearch = project.name
-        .toLowerCase()
-        .includes(this.searchQuery.toLowerCase());
+      const matchesSearch = project.name.toLowerCase().includes(search);
       const matchesStatus =
-        this.statusFilter === 'all' || project.status === this.statusFilter;
+        status === 'all' || project.status === status;
       return matchesSearch && matchesStatus;
     });
   }
 
   addProject() {
-    if (this.newProject.name) {
-      this.projectService
-        .createProject(this.newProject as Project)
-        .subscribe((project) => {
-          this.projects.push(project);
-          this.newProject = {
-            name: '',
-            description: '',
-            status: 'active',
-            tasks: [],
-          };
-        });
+    if (this.projectForm.valid) {
+      const newProject: Project = {
+        ...this.projectForm.value,
+        id: Date.now(),
+        status: 'active',
+        tasks: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.projects = [...this.projects, newProject];
+      this.applyFilter();
+      this.projectForm.reset({ name: '', description: '', deadline: new Date() });
     }
   }
 
@@ -530,25 +559,25 @@ export class ProjectListComponent implements OnInit {
   }
 
   addTask(projectId: number) {
-    if (this.newTask.title) {
-      const task = {
-        ...this.newTask,
+    if (this.taskForm.valid) {
+      const newTask: Task = {
+        ...this.taskForm.value,
+        id: Date.now(),
+        status: 'todo',
         projectId,
-        priority: this.newTask.priority || ('medium' as TaskPriority),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
-      this.taskService.createTask(task as Task).subscribe((newTask) => {
-        const project = this.projects.find((p) => p.id === projectId);
-        if (project) {
-          project.tasks.push(newTask);
-        }
-        // Reset form with default values
-        this.newTask = {
-          title: '',
-          description: '',
-          status: 'todo',
-          priority: 'medium' as TaskPriority,
-          dueDate: new Date(),
-        };
+      const project = this.projects.find((p) => p.id === projectId);
+      if (project) {
+        project.tasks.push(newTask);
+        this.updateFilteredTasksMap();
+      }
+      this.taskForm.reset({
+        title: '',
+        description: '',
+        priority: 'medium',
+        dueDate: new Date(),
       });
     }
   }
@@ -579,6 +608,7 @@ export class ProjectListComponent implements OnInit {
           const project = this.projects.find((p) => p.id === projectId);
           if (project) {
             project.tasks = project.tasks.filter((task) => task.id !== taskId);
+            this.updateFilteredTasksMap();
           }
         });
       }
@@ -594,46 +624,58 @@ export class ProjectListComponent implements OnInit {
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
         this.taskService.updateTask(task.id, result).subscribe(() => {
-          this.loadProjects();
+          const project = this.projects.find((p) =>
+            p.tasks.some((t) => t.id === task.id)
+          );
+          if (project) {
+            const i = project.tasks.findIndex((t) => t.id === task.id);
+            if (i !== -1) project.tasks[i] = { ...result, id: task.id };
+          }
+          this.updateFilteredTasksMap();
         });
       }
     });
   }
 
-  getFilteredTasks(project: Project): Task[] {
-    let tasks = [...project.tasks];
+  updateFilteredTasksMap(): void {
+    const priorityOrder: Record<string, number> = {
+      high: 0,
+      medium: 1,
+      low: 2,
+    };
+    const statusOrder: Record<string, number> = {
+      todo: 0,
+      'in-progress': 1,
+      completed: 2,
+    };
+    const taskStatus = this.taskStatusFilterControl.value;
+    const sortBy = this.taskSortControl.value;
 
-    // Apply status filter
-    if (this.taskStatusFilter !== 'all') {
-      tasks = tasks.filter((task) => task.status === this.taskStatusFilter);
-    }
+    for (const project of this.projects) {
+      let tasks = [...(project.tasks || [])];
 
-    // Apply sorting
-    tasks.sort((a, b) => {
-      switch (this.taskSortBy) {
-        case 'priority':
-          const priorityOrder = { high: 0, medium: 1, low: 2 };
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
-        case 'dueDate':
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-        case 'status':
-          const statusOrder = { todo: 0, 'in-progress': 1, completed: 2 };
-          return statusOrder[a.status] - statusOrder[b.status];
-        default:
-          return 0;
+      if (taskStatus !== 'all') {
+        tasks = tasks.filter((task) => task.status === taskStatus);
       }
-    });
 
-    return tasks;
-  }
+      tasks.sort((a, b) => {
+        switch (sortBy) {
+          case 'priority':
+            return priorityOrder[a.priority] - priorityOrder[b.priority];
+          case 'dueDate':
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return (
+              new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+            );
+          case 'status':
+            return statusOrder[a.status] - statusOrder[b.status];
+          default:
+            return 0;
+        }
+      });
 
-  applyTaskFilter(project: Project): void {
-    // The filtering is handled in getFilteredTasks
-  }
-
-  applyTaskSort(project: Project): void {
-    // The sorting is handled in getFilteredTasks
+      this.filteredTasksMap[project.id] = tasks;
+    }
   }
 }

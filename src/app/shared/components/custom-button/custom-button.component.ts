@@ -1,10 +1,12 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-custom-button',
   standalone: true,
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, MatIconModule, CommonModule],
   template: `
     <button
       mat-raised-button
@@ -12,6 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
       [disabled]="disabled"
       (click)="onClick()"
     >
+      <mat-icon *ngIf="icon">{{ icon }}</mat-icon>
       {{ label }}
     </button>
   `,
@@ -20,20 +23,19 @@ import { MatButtonModule } from '@angular/material/button';
       button {
         margin: 5px;
       }
+      mat-icon {
+        margin-right: 4px;
+      }
     `,
   ],
 })
 export class CustomButtonComponent {
-  // Input for button label
   @Input() label: string = 'Button';
-  // Input for button color
   @Input() color: 'primary' | 'accent' | 'warn' = 'primary';
-  // Input to disable the button
   @Input() disabled: boolean = false;
-  // Output event for button click
+  @Input() icon?: string;
   @Output() clicked = new EventEmitter<void>();
 
-  // Handle button click
   onClick() {
     this.clicked.emit();
   }
