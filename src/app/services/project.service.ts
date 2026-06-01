@@ -1,6 +1,6 @@
-import { Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, map, tap } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { ApiStateService } from './api-state.service';
 import { Project } from '../models/project.interface';
 
 interface DummyProduct {
@@ -22,16 +22,8 @@ interface DummyProductResponse {
 @Injectable({
   providedIn: 'root',
 })
-export class ProjectService {
+export class ProjectService extends ApiStateService {
   private apiUrl = 'https://dummyjson.com/products';
-
-  private loadingSignal = signal(false);
-  private errorSignal = signal<string | null>(null);
-
-  readonly loading = this.loadingSignal.asReadonly();
-  readonly error = this.errorSignal.asReadonly();
-
-  constructor(private http: HttpClient) {}
 
   private mapProduct(product: DummyProduct): Project {
     return {
@@ -47,96 +39,44 @@ export class ProjectService {
   }
 
   getProjects(): Observable<Project[]> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http
-      .get<DummyProductResponse>(`${this.apiUrl}?limit=10`)
-      .pipe(
-        map((response) =>
-          response.products.map((product) => this.mapProduct(product))
-        ),
-        tap({
-          next: () => this.loadingSignal.set(false),
-          error: () => {
-            this.errorSignal.set('Failed to load projects');
-            this.loadingSignal.set(false);
-          },
-        })
-      );
-  }
-
-  getProject(id: number): Observable<Project> {
-    return this.http
-      .get<DummyProduct>(`${this.apiUrl}/${id}`)
-      .pipe(map((product) => this.mapProduct(product)));
-  }
-
-  searchProjects(query: string): Observable<Project[]> {
-    return this.http
-      .get<DummyProductResponse>(`${this.apiUrl}/search?q=${query}`)
-      .pipe(
-        map((response) =>
-          response.products.map((product) => this.mapProduct(product))
-        )
-      );
+    return this.track(
+      this.http
+        .get<DummyProductResponse>(`${this.apiUrl}?limit=10`)
+        .pipe(map((response) => response.products.map((p) => this.mapProduct(p)))),
+      'Failed to load projects'
+    );
   }
 
   createProject(project: Project): Observable<Project> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http
-      .post<DummyProduct>(`${this.apiUrl}/add`, {
-        title: project.name,
-        description: project.description,
-      })
-      .pipe(
-        map((product) => this.mapProduct(product)),
-        tap({
-          next: () => this.loadingSignal.set(false),
-          error: () => {
-            this.errorSignal.set('Failed to create project');
-            this.loadingSignal.set(false);
-          },
+    return this.track(
+      this.http
+        .post<DummyProduct>(`${this.apiUrl}/add`, {
+          title: project.name,
+          description: project.description,
         })
-      );
+        .pipe(map((product) => this.mapProduct(product))),
+      'Failed to create project'
+    );
   }
 
   updateProject(id: number, project: Project): Observable<Project> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http
-      .put<DummyProduct>(`${this.apiUrl}/${id}`, {
-        title: project.name,
-        description: project.description,
-      })
-      .pipe(
-        map((product) => this.mapProduct(product)),
-        tap({
-          next: () => this.loadingSignal.set(false),
-          error: () => {
-            this.errorSignal.set('Failed to update project');
-            this.loadingSignal.set(false);
-          },
+    return this.track(
+      this.http
+        .put<DummyProduct>(`${this.apiUrl}/${id}`, {
+          title: project.name,
+          description: project.description,
         })
-      );
+        .pipe(map((product) => this.mapProduct(product))),
+      'Failed to update project'
+    );
   }
 
   deleteProject(id: number): Observable<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http.delete<any>(`${this.apiUrl}/${id}`).pipe(
-      map(() => undefined),
-      tap({
-        next: () => this.loadingSignal.set(false),
-        error: () => {
-          this.errorSignal.set('Failed to delete project');
-          this.loadingSignal.set(false);
-        },
-      })
+    return this.track(
+      this.http
+        .delete<DummyProduct>(`${this.apiUrl}/${id}`)
+        .pipe(map(() => undefined)),
+      'Failed to delete project'
     );
   }
 }

@@ -26,24 +26,10 @@ export const routes: Routes = [
           ).then((m) => m.ProjectListComponent),
       },
       {
-        path: 'projects/:id',
-        loadComponent: () =>
-          import(
-            './components/projects/project-detail/project-detail.component'
-          ).then((m) => m.ProjectDetailComponent),
-      },
-      {
         path: 'tasks',
         loadComponent: () =>
           import('./components/tasks/task-list/task-list.component').then(
             (m) => m.TaskListComponent
-          ),
-      },
-      {
-        path: 'tasks/:id',
-        loadComponent: () =>
-          import('./components/tasks/task-detail/task-detail.component').then(
-            (m) => m.TaskDetailComponent
           ),
       },
     ],

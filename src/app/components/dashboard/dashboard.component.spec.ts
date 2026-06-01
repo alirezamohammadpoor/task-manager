@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
 import { DashboardComponent } from './dashboard.component';
 
@@ -12,11 +11,7 @@ describe('DashboardComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [DashboardComponent],
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        provideAnimationsAsync(),
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DashboardComponent);
@@ -28,7 +23,7 @@ describe('DashboardComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should render the Dashboard heading', () => {
+  it('should render the Dashboard heading and stat cards', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
     expect(text).toContain('Dashboard');
     expect(text).toContain('Total Projects');

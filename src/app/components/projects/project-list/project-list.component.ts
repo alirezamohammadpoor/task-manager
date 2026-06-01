@@ -28,6 +28,11 @@ import { TaskFormComponent } from '../../tasks/task-form/task-form.component';
 import { CustomButtonComponent } from '../../../shared/components/custom-button/custom-button.component';
 import { PriorityLabelPipe } from '../../../shared/pipes/priority-label.pipe';
 import { OverdueTaskDirective } from '../../../shared/directives/overdue-task.directive';
+import {
+  compareByDueDate,
+  compareByPriority,
+  compareByStatus,
+} from '../../../shared/utils/task-sorters';
 
 @Component({
   selector: 'app-project-list',
@@ -524,19 +529,23 @@ export class ProjectListComponent implements OnInit {
   }
 
   addProject() {
-    if (this.projectForm.valid) {
-      const newProject: Project = {
-        ...this.projectForm.value,
-        id: Date.now(),
-        status: 'active',
-        tasks: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      this.projects = [...this.projects, newProject];
-      this.applyFilter();
-      this.projectForm.reset({ name: '', description: '', deadline: new Date() });
-    }
+    if (this.projectForm.invalid) return;
+
+    const newProject: Project = {
+      ...this.projectForm.value,
+      id: Date.now(),
+      status: 'active',
+      tasks: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Persist via the API (DummyJSON simulates the write); update local state
+    // optimistically with a unique local id so the UI stays responsive.
+    this.projectService.createProject(newProject).subscribe({ error: () => {} });
+    this.projects = [...this.projects, newProject];
+    this.applyFilter();
+    this.projectForm.reset({ name: '', description: '', deadline: new Date() });
   }
 
   openEditDialog(project: Project) {
@@ -559,27 +568,30 @@ export class ProjectListComponent implements OnInit {
   }
 
   addTask(projectId: number) {
-    if (this.taskForm.valid) {
-      const newTask: Task = {
-        ...this.taskForm.value,
-        id: Date.now(),
-        status: 'todo',
-        projectId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      const project = this.projects.find((p) => p.id === projectId);
-      if (project) {
-        project.tasks.push(newTask);
-        this.updateFilteredTasksMap();
-      }
-      this.taskForm.reset({
-        title: '',
-        description: '',
-        priority: 'medium',
-        dueDate: new Date(),
-      });
+    if (this.taskForm.invalid) return;
+
+    const newTask: Task = {
+      ...this.taskForm.value,
+      id: Date.now(),
+      status: 'todo',
+      projectId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const project = this.projects.find((p) => p.id === projectId);
+    if (project) {
+      // Persist via the API (DummyJSON simulates the write); update local state
+      // optimistically, consistent with addProject and the task list.
+      this.taskService.createTask(newTask).subscribe({ error: () => {} });
+      project.tasks.push(newTask);
+      this.updateFilteredTasksMap();
     }
+    this.taskForm.reset({
+      title: '',
+      description: '',
+      priority: 'medium',
+      dueDate: new Date(),
+    });
   }
 
   deleteProject(id: number) {
@@ -638,16 +650,6 @@ export class ProjectListComponent implements OnInit {
   }
 
   updateFilteredTasksMap(): void {
-    const priorityOrder: Record<string, number> = {
-      high: 0,
-      medium: 1,
-      low: 2,
-    };
-    const statusOrder: Record<string, number> = {
-      todo: 0,
-      'in-progress': 1,
-      completed: 2,
-    };
     const taskStatus = this.taskStatusFilterControl.value;
     const sortBy = this.taskSortControl.value;
 
@@ -661,15 +663,11 @@ export class ProjectListComponent implements OnInit {
       tasks.sort((a, b) => {
         switch (sortBy) {
           case 'priority':
-            return priorityOrder[a.priority] - priorityOrder[b.priority];
+            return compareByPriority(a, b);
           case 'dueDate':
-            if (!a.dueDate) return 1;
-            if (!b.dueDate) return -1;
-            return (
-              new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-            );
+            return compareByDueDate(a, b);
           case 'status':
-            return statusOrder[a.status] - statusOrder[b.status];
+            return compareByStatus(a, b);
           default:
             return 0;
         }

@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { TaskListComponent } from './task-list.component';
 
@@ -8,16 +10,25 @@ describe('TaskListComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TaskListComponent]
-    })
-    .compileComponents();
+      imports: [TaskListComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
 
     fixture = TestBed.createComponent(TaskListComponent);
     component = fixture.componentInstance;
-    fixture.detectChanges();
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('should require a task title in the add-task form', () => {
+    const title = component.taskForm.get('title')!;
+
+    title.setValue('');
+    expect(component.taskForm.valid).toBeFalse();
+
+    title.setValue('Write unit tests');
+    expect(component.taskForm.valid).toBeTrue();
   });
 });

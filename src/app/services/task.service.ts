@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable, signal } from '@angular/core';
-import { Observable, map, tap } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { Observable, map } from 'rxjs';
+import { ApiStateService } from './api-state.service';
 import { Task } from '../models/task.interface';
 
 interface DummyTodo {
@@ -20,16 +20,8 @@ interface DummyTodoResponse {
 @Injectable({
   providedIn: 'root',
 })
-export class TaskService {
+export class TaskService extends ApiStateService {
   private apiUrl = 'https://dummyjson.com/todos';
-
-  private loadingSignal = signal(false);
-  private errorSignal = signal<string | null>(null);
-
-  readonly loading = this.loadingSignal.asReadonly();
-  readonly error = this.errorSignal.asReadonly();
-
-  constructor(private http: HttpClient) {}
 
   private mapTodo(todo: DummyTodo): Task {
     return {
@@ -46,91 +38,54 @@ export class TaskService {
   }
 
   getTasks(): Observable<Task[]> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http.get<DummyTodoResponse>(`${this.apiUrl}?limit=50`).pipe(
-      map((response) => response.todos.map((todo) => this.mapTodo(todo))),
-      tap({
-        next: () => this.loadingSignal.set(false),
-        error: () => {
-          this.errorSignal.set('Failed to load tasks');
-          this.loadingSignal.set(false);
-        },
-      })
-    );
-  }
-
-  getTask(id: number): Observable<Task> {
-    return this.http
-      .get<DummyTodo>(`${this.apiUrl}/${id}`)
-      .pipe(map((todo) => this.mapTodo(todo)));
-  }
-
-  createTask(task: Task): Observable<Task> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http
-      .post<DummyTodo>(`${this.apiUrl}/add`, {
-        todo: task.title,
-        completed: task.status === 'completed',
-        userId: task.projectId,
-      })
-      .pipe(
-        map((todo) => this.mapTodo(todo)),
-        tap({
-          next: () => this.loadingSignal.set(false),
-          error: () => {
-            this.errorSignal.set('Failed to create task');
-            this.loadingSignal.set(false);
-          },
-        })
-      );
-  }
-
-  updateTask(id: number, task: Task): Observable<Task> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http
-      .put<DummyTodo>(`${this.apiUrl}/${id}`, {
-        todo: task.title,
-        completed: task.status === 'completed',
-      })
-      .pipe(
-        map((todo) => this.mapTodo(todo)),
-        tap({
-          next: () => this.loadingSignal.set(false),
-          error: () => {
-            this.errorSignal.set('Failed to update task');
-            this.loadingSignal.set(false);
-          },
-        })
-      );
-  }
-
-  deleteTask(id: number): Observable<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    return this.http.delete<any>(`${this.apiUrl}/${id}`).pipe(
-      map(() => undefined),
-      tap({
-        next: () => this.loadingSignal.set(false),
-        error: () => {
-          this.errorSignal.set('Failed to delete task');
-          this.loadingSignal.set(false);
-        },
-      })
+    return this.track(
+      this.http
+        .get<DummyTodoResponse>(`${this.apiUrl}?limit=50`)
+        .pipe(map((response) => response.todos.map((t) => this.mapTodo(t)))),
+      'Failed to load tasks'
     );
   }
 
   getTasksByProject(projectId: number): Observable<Task[]> {
-    return this.http
-      .get<DummyTodoResponse>(`${this.apiUrl}/user/${projectId}`)
-      .pipe(
-        map((response) => response.todos.map((todo) => this.mapTodo(todo)))
-      );
+    return this.track(
+      this.http
+        .get<DummyTodoResponse>(`${this.apiUrl}/user/${projectId}`)
+        .pipe(map((response) => response.todos.map((t) => this.mapTodo(t)))),
+      'Failed to load tasks for project'
+    );
+  }
+
+  createTask(task: Task): Observable<Task> {
+    return this.track(
+      this.http
+        .post<DummyTodo>(`${this.apiUrl}/add`, {
+          todo: task.title,
+          completed: task.status === 'completed',
+          userId: task.projectId,
+        })
+        .pipe(map((todo) => this.mapTodo(todo))),
+      'Failed to create task'
+    );
+  }
+
+  updateTask(id: number, task: Task): Observable<Task> {
+    return this.track(
+      this.http
+        .put<DummyTodo>(`${this.apiUrl}/${id}`, {
+          todo: task.title,
+          completed: task.status === 'completed',
+        })
+        .pipe(map((todo) => this.mapTodo(todo))),
+      'Failed to update task'
+    );
+  }
+
+  deleteTask(id: number): Observable<void> {
+    return this.track(
+      this.http
+        .delete<DummyTodo>(`${this.apiUrl}/${id}`)
+        .pipe(map(() => undefined)),
+      'Failed to delete task'
+    );
   }
 }

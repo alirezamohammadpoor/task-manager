@@ -19,6 +19,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { TaskService } from '../../../services/task.service';
 import { Task, TaskStatus } from '../../../models/task.interface';
 import { PriorityLabelPipe } from '../../../shared/pipes/priority-label.pipe';
+import {
+  compareByDueDate,
+  compareByPriority,
+  compareByTitle,
+} from '../../../shared/utils/task-sorters';
 
 @Component({
   selector: 'app-task-list',
@@ -306,20 +311,11 @@ export class TaskListComponent implements OnInit {
     tasks.sort((a, b) => {
       switch (sortBy) {
         case 'dueDate':
-          if (!a.dueDate) return 1;
-          if (!b.dueDate) return -1;
-          return (
-            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-          );
+          return compareByDueDate(a, b);
         case 'priority':
-          const priorityOrder: Record<string, number> = {
-            high: 0,
-            medium: 1,
-            low: 2,
-          };
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
+          return compareByPriority(a, b);
         case 'title':
-          return a.title.localeCompare(b.title);
+          return compareByTitle(a, b);
         default:
           return 0;
       }
@@ -329,30 +325,30 @@ export class TaskListComponent implements OnInit {
   }
 
   addTask() {
-    if (this.taskForm.valid) {
-      const task: Task = {
-        ...this.taskForm.value,
-        status: 'todo',
-        priority: 'medium',
-        dueDate: new Date(),
-        projectId: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Task;
-      this.taskService.createTask(task).subscribe((newTask) => {
-        this.allTasks.push(newTask);
-        this.applyFilters();
-        this.taskForm.reset({ title: '', description: '' });
-      });
-    }
+    if (this.taskForm.invalid) return;
+
+    const task: Task = {
+      ...this.taskForm.value,
+      id: Date.now(),
+      status: 'todo',
+      priority: 'medium',
+      dueDate: new Date(),
+      projectId: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Persist via the API (DummyJSON simulates the write); update local state
+    // optimistically with a unique local id to keep list keys stable.
+    this.taskService.createTask(task).subscribe({ error: () => {} });
+    this.allTasks.push(task);
+    this.applyFilters();
+    this.taskForm.reset({ title: '', description: '' });
   }
 
   toggleTaskStatus(task: Task): void {
-    const updatedTask = {
-      ...task,
-      status:
-        task.status === 'completed' ? 'todo' : ('completed' as TaskStatus),
-    };
+    const status: TaskStatus = task.status === 'completed' ? 'todo' : 'completed';
+    const updatedTask: Task = { ...task, status };
     this.taskService.updateTask(task.id, updatedTask).subscribe(() => {
       const i = this.allTasks.findIndex((t) => t.id === task.id);
       if (i !== -1) this.allTasks[i] = updatedTask;

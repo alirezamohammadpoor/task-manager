@@ -1,102 +1,118 @@
 # Task Manager
 
-A modern task management application built with Angular and Material Design.
+A task management application built with **Angular 19** and **Angular Material**. Manage
+projects and the tasks inside them — create, edit, delete, search, filter, prioritise and
+set deadlines — backed by the public [DummyJSON](https://dummyjson.com/docs) API.
 
 ## Features
 
-- Create, read, update, and delete projects and tasks
-- Assign tasks to projects
-- Set task priorities and due dates
-- Mark tasks as completed
-- Responsive design for all devices
+**Projects**
+
+- List projects with name, description, deadline and task count
+- Create, edit and delete projects
+- Search by name and filter by status (active / completed / archived)
+
+**Tasks**
+
+- View the tasks inside each project (expandable project list)
+- Create, edit and delete tasks
+- Mark tasks as done / not done
+- Filter by status (all / to‑do / in‑progress / completed) and priority (low / medium / high)
+- Sort by priority, due date or status, and set a deadline per task
+
+**Dashboard** — totals for projects and tasks, plus a tasks‑by‑status breakdown.
 
 ## Prerequisites
 
-- Node.js (v14 or later)
-- npm (v6 or later)
+- Node.js 20 LTS or newer
+- npm 10 or newer
 
-## Installation
+## Installation & running
 
-1. Clone the repository:
+```bash
+npm install      # install dependencies
+npm start        # ng serve → http://localhost:4200
+```
 
-   ```bash
-   git clone <repository-url>
-   cd task-manager
-   ```
+```bash
+npm run build    # production build into dist/
+npm test         # run the unit tests once (Karma + Jasmine, headless Chrome)
+```
 
-2. Install dependencies:
+> `npm test` uses watch mode by default. For a single CI‑style run:
+> `ng test --watch=false --browsers=ChromeHeadless`.
 
-   ```bash
-   npm install
-   ```
+## API integration
 
-3. Install JSON Server (for local API simulation):
-   ```bash
-   npm install -D json-server
-   ```
+The app talks to **DummyJSON** over `HttpClient` and adapts its sample data to the
+domain model:
 
-## Running the Application
+| Domain | DummyJSON endpoint | Mapping |
+| --- | --- | --- |
+| Projects | `/products` | `title → name`, `description → description`, `price → synthetic deadline` |
+| Tasks | `/todos` | `todo → title`, `completed → status`, `userId → projectId` |
 
-1. Start the JSON Server (in one terminal):
+DummyJSON **simulates** writes — `POST`/`PUT`/`DELETE` return a realistic response but do
+not persist. The app therefore updates its own state **optimistically (local‑first)** after
+each call, so the UI reflects changes immediately while still exercising the real HTTP layer.
 
-   ```bash
-   npx json-server --watch db.json --port 3000
-   ```
+## Architecture
 
-2. Start the Angular development server (in another terminal):
+```
+src/app/
+├── components/
+│   ├── dashboard/            # stats overview
+│   ├── layout/main-layout/   # toolbar + sidenav shell
+│   ├── projects/             # project-list (+ inline tasks) and project-form dialog
+│   └── tasks/                # task-list and task-form dialog
+├── services/
+│   ├── api-state.service.ts  # base class: shared loading/error signals + HTTP wrapper
+│   ├── project.service.ts    # Projects CRUD against DummyJSON /products
+│   └── task.service.ts       # Tasks CRUD against DummyJSON /todos
+├── models/                   # Project and Task interfaces (+ status/priority unions)
+├── shared/
+│   ├── components/custom-button/   # generic, reusable button
+│   ├── confirmation-dialog/        # generic confirm dialog
+│   ├── directives/overdue-task.directive.ts   # custom directive
+│   └── pipes/priority-label.pipe.ts           # custom pipe
+├── app.routes.ts             # routing: dashboard / projects / tasks (lazy-loaded)
+└── app.config.ts             # providers (router, HttpClient)
+```
 
-   ```bash
-   ng serve
-   ```
+Key technical choices:
 
-3. Open your browser and navigate to [http://localhost:4200](http://localhost:4200).
+- **Standalone components** with **lazy‑loaded routes**.
+- **Angular Signals** for asynchronous state: `loading` and `error` live on a small
+  `ApiStateService` base class, so both feature services share the boilerplate via a single
+  `track()` helper instead of repeating it on every request.
+- **Reactive Forms** with validation (`required`, `minLength`, `maxLength`) for every form.
+- **Error handling** on every API call, surfaced to the user through the `error` signal.
+- A **custom directive** (`appOverdueTask`, highlights overdue tasks), a **custom pipe**
+  (`priorityLabel`), and **generic reusable components** (`CustomButton`, `ConfirmationDialog`).
 
-## API Endpoints
+## Testing
 
-- Projects: [http://localhost:3000/projects](http://localhost:3000/projects)
-- Tasks: [http://localhost:3000/tasks](http://localhost:3000/tasks)
+Unit tests (Jasmine/Karma) cover both services (`ProjectService`, `TaskService` — HTTP
+behaviour via `HttpTestingController`) and several components (`DashboardComponent`,
+`CustomButtonComponent`, plus reactive‑form validation for the project and task lists).
 
-## Technologies Used
+## Reflections
 
-- Angular
-- Angular Material
-- JSON Server (for local API simulation)
-- TypeScript
-- HTML/CSS
+- **Signals + a base service** removed a lot of duplicated loading/error wiring and made the
+  two services almost declarative — each method just describes its request and an error message.
+- **DummyJSON's non‑persistent writes** drove the local‑first approach: call the API for real,
+  but treat client state as the source of truth so the UX stays consistent.
 
-## License
+### Possible improvements
 
-This project is licensed under the MIT License.
+Drag‑and‑drop status changes (Angular CDK), real persistence, project‑level progress tracking,
+theming, and import/export.
 
 ## Screenshots
 
-![Project List View](screenshots/project-list.png)
-![Task Management](screenshots/task-management.png)
-
-## Development
-
-- Built with Angular 17
-- Uses Angular Material for UI components
-- Implements Angular Signals for state management
-- Custom components and directives for enhanced functionality
-
-## Project Structure
+_Add screenshots of the dashboard, project list and task list here before submitting, e.g.:_
 
 ```
-src/
-├── app/
-│   ├── components/      # Feature components
-│   ├── services/        # Data services
-│   ├── models/          # TypeScript interfaces
-│   └── shared/          # Shared components, pipes, directives
-├── assets/             # Static assets
-└── environments/       # Environment configurations
+![Dashboard](screenshots/dashboard.png)
+![Projects](screenshots/projects.png)
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
