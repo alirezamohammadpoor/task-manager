@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 import {
-  HttpClientTestingModule,
+  provideHttpClientTesting,
   HttpTestingController,
 } from '@angular/common/http/testing';
 import { TaskService } from './task.service';
@@ -11,8 +12,7 @@ describe('TaskService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [TaskService],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     service = TestBed.inject(TaskService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -28,9 +28,16 @@ describe('TaskService', () => {
     expect(req.request.method).toBe('GET');
   });
 
-  it('should make GET request to load tasks by project (userId)', () => {
-    service.getTasksByProject(1).subscribe();
-    const req = httpMock.expectOne('https://dummyjson.com/todos/user/1');
-    expect(req.request.method).toBe('GET');
+  it('should map the DummyJSON todos response into Task objects', () => {
+    let tasks: any[] = [];
+    service.getTasks().subscribe((result) => (tasks = result));
+
+    const req = httpMock.expectOne('https://dummyjson.com/todos?limit=50');
+    req.flush({
+      todos: [{ id: 1, todo: 'Buy milk', completed: true, userId: 5 }],
+    });
+
+    expect(tasks[0].title).toBe('Buy milk');
+    expect(tasks[0].status).toBe('completed');
   });
 });

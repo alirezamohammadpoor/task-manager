@@ -4,6 +4,7 @@ import {
   ReactiveFormsModule,
   FormBuilder,
   FormGroup,
+  FormGroupDirective,
   FormControl,
   Validators,
 } from '@angular/forms';
@@ -90,7 +91,11 @@ import {
           <mat-card-title>Add New Project</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <form [formGroup]="projectForm" (ngSubmit)="addProject()">
+          <form
+            [formGroup]="projectForm"
+            #projectFormDir="ngForm"
+            (ngSubmit)="addProject(projectFormDir)"
+          >
             <mat-form-field appearance="fill">
               <mat-label>Project Name</mat-label>
               <input matInput formControlName="name" />
@@ -224,7 +229,8 @@ import {
               <!-- Add Task Form -->
               <form
                 [formGroup]="taskForm"
-                (ngSubmit)="addTask(project.id)"
+                #taskFormDir="ngForm"
+                (ngSubmit)="addTask(project.id, taskFormDir)"
                 class="add-task-form"
               >
                 <mat-form-field appearance="fill">
@@ -528,7 +534,7 @@ export class ProjectListComponent implements OnInit {
     });
   }
 
-  addProject() {
+  addProject(formDir: FormGroupDirective) {
     if (this.projectForm.invalid) return;
 
     const newProject: Project = {
@@ -545,7 +551,9 @@ export class ProjectListComponent implements OnInit {
     this.projectService.createProject(newProject).subscribe({ error: () => {} });
     this.projects = [...this.projects, newProject];
     this.applyFilter();
-    this.projectForm.reset({ name: '', description: '', deadline: new Date() });
+    // resetForm() clears values AND the submitted flag, so Material won't
+    // flash required-field errors on the freshly-cleared form.
+    formDir.resetForm({ name: '', description: '', deadline: new Date() });
   }
 
   openEditDialog(project: Project) {
@@ -555,19 +563,21 @@ export class ProjectListComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
+        // Update local state optimistically, then fire-and-forget the API
+        // (consistent with addProject; DummyJSON doesn't persist edits).
+        const index = this.projects.findIndex((p) => p.id === project.id);
+        if (index !== -1) {
+          this.projects[index] = { ...result, id: project.id };
+        }
+        this.applyFilter();
         this.projectService
           .updateProject(project.id, result)
-          .subscribe((updatedProject) => {
-            const index = this.projects.findIndex((p) => p.id === project.id);
-            if (index !== -1) {
-              this.projects[index] = updatedProject;
-            }
-          });
+          .subscribe({ error: () => {} });
       }
     });
   }
 
-  addTask(projectId: number) {
+  addTask(projectId: number, formDir: FormGroupDirective) {
     if (this.taskForm.invalid) return;
 
     const newTask: Task = {
@@ -586,7 +596,9 @@ export class ProjectListComponent implements OnInit {
       project.tasks.push(newTask);
       this.updateFilteredTasksMap();
     }
-    this.taskForm.reset({
+    // resetForm() clears values AND the submitted flag, so Material won't
+    // flash required-field errors on the freshly-cleared form.
+    formDir.resetForm({
       title: '',
       description: '',
       priority: 'medium',
@@ -601,10 +613,10 @@ export class ProjectListComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.projectService.deleteProject(id).subscribe(() => {
-          this.projects = this.projects.filter((project) => project.id !== id);
-          this.applyFilter();
-        });
+        // Remove from local state optimistically, then fire-and-forget the API.
+        this.projects = this.projects.filter((project) => project.id !== id);
+        this.applyFilter();
+        this.projectService.deleteProject(id).subscribe({ error: () => {} });
       }
     });
   }
@@ -616,13 +628,13 @@ export class ProjectListComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.taskService.deleteTask(taskId).subscribe(() => {
-          const project = this.projects.find((p) => p.id === projectId);
-          if (project) {
-            project.tasks = project.tasks.filter((task) => task.id !== taskId);
-            this.updateFilteredTasksMap();
-          }
-        });
+        // Remove from local state optimistically, then fire-and-forget the API.
+        const project = this.projects.find((p) => p.id === projectId);
+        if (project) {
+          project.tasks = project.tasks.filter((task) => task.id !== taskId);
+          this.updateFilteredTasksMap();
+        }
+        this.taskService.deleteTask(taskId).subscribe({ error: () => {} });
       }
     });
   }
@@ -635,16 +647,17 @@ export class ProjectListComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.taskService.updateTask(task.id, result).subscribe(() => {
-          const project = this.projects.find((p) =>
-            p.tasks.some((t) => t.id === task.id)
-          );
-          if (project) {
-            const i = project.tasks.findIndex((t) => t.id === task.id);
-            if (i !== -1) project.tasks[i] = { ...result, id: task.id };
-          }
-          this.updateFilteredTasksMap();
-        });
+        // Update local state optimistically (DummyJSON doesn't persist, and
+        // locally-added tasks have no server id), then fire-and-forget the API.
+        const project = this.projects.find((p) =>
+          p.tasks.some((t) => t.id === task.id)
+        );
+        if (project) {
+          const i = project.tasks.findIndex((t) => t.id === task.id);
+          if (i !== -1) project.tasks[i] = { ...result, id: task.id };
+        }
+        this.updateFilteredTasksMap();
+        this.taskService.updateTask(task.id, result).subscribe({ error: () => {} });
       }
     });
   }

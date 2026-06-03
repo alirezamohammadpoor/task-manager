@@ -4,6 +4,7 @@ import {
   ReactiveFormsModule,
   FormBuilder,
   FormGroup,
+  FormGroupDirective,
   FormControl,
   Validators,
 } from '@angular/forms';
@@ -111,7 +112,11 @@ import {
           <mat-card-title>Add New Task</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <form [formGroup]="taskForm" (ngSubmit)="addTask()">
+          <form
+            [formGroup]="taskForm"
+            #taskFormDir="ngForm"
+            (ngSubmit)="addTask(taskFormDir)"
+          >
             <mat-form-field appearance="fill">
               <mat-label>Task Title</mat-label>
               <input matInput formControlName="title" />
@@ -324,7 +329,7 @@ export class TaskListComponent implements OnInit {
     this.filteredTasks = tasks;
   }
 
-  addTask() {
+  addTask(formDir: FormGroupDirective) {
     if (this.taskForm.invalid) return;
 
     const task: Task = {
@@ -343,23 +348,26 @@ export class TaskListComponent implements OnInit {
     this.taskService.createTask(task).subscribe({ error: () => {} });
     this.allTasks.push(task);
     this.applyFilters();
-    this.taskForm.reset({ title: '', description: '' });
+    // resetForm() clears values AND the submitted flag, so Material won't
+    // flash the required-title error on the freshly-cleared form.
+    formDir.resetForm({ title: '', description: '' });
   }
 
   toggleTaskStatus(task: Task): void {
     const status: TaskStatus = task.status === 'completed' ? 'todo' : 'completed';
     const updatedTask: Task = { ...task, status };
-    this.taskService.updateTask(task.id, updatedTask).subscribe(() => {
-      const i = this.allTasks.findIndex((t) => t.id === task.id);
-      if (i !== -1) this.allTasks[i] = updatedTask;
-      this.applyFilters();
-    });
+    // Update local state optimistically, then fire-and-forget the API
+    // (consistent with addTask; DummyJSON doesn't persist locally-added ids).
+    const i = this.allTasks.findIndex((t) => t.id === task.id);
+    if (i !== -1) this.allTasks[i] = updatedTask;
+    this.applyFilters();
+    this.taskService.updateTask(task.id, updatedTask).subscribe({ error: () => {} });
   }
 
   deleteTask(id: number) {
-    this.taskService.deleteTask(id).subscribe(() => {
-      this.allTasks = this.allTasks.filter((t) => t.id !== id);
-      this.applyFilters();
-    });
+    // Remove from local state optimistically, then fire-and-forget the API.
+    this.allTasks = this.allTasks.filter((t) => t.id !== id);
+    this.applyFilters();
+    this.taskService.deleteTask(id).subscribe({ error: () => {} });
   }
 }
